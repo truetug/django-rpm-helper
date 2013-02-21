@@ -50,19 +50,21 @@ list_check() {
     to_check=${@}
 
     IS_OK=true
+    TO_INSTALL=()
     for prog in ${to_check}; do
         cmd="${func} ${prog}"
         echo -n "Checking for ${prog}... "
         if ! eval ${cmd}; then
             IS_OK=false
+            TO_INSTALL+=("${prog}")
             echo "FAIL"
         else
             echo "OK"
         fi
     done
 
-    if $IS_OK; then
-        echo "Use: sudo yum install ${REQUIREMENTS[@]}"
+    if ! $IS_OK; then
+        echo "Install: ${REQUIREMENTS[@]}"
         exit
     fi
 }
@@ -75,7 +77,7 @@ func_setup_env() {
     fi
 
     # Update requirements
-    if [ -d ${PACKAGES_ROOT} ]; then
+    if [ ! -d ${PACKAGES_ROOT} ]; then
         echo "Install requirements... "
         func_update_env
     fi
@@ -92,6 +94,11 @@ func_update_env() {
 
 
 func_setup_rpm() {
+# Check requirements
+REQUIREMENTS=(rpm-build redhat-rpm-config)
+list_check programm_exists ${REQUIREMENTS[@]}
+list_check programm_exists ${BUILD_REQUIREMENTS[@]}
+
 # Create directory structure
 echo -n "Creating ${HOME}/rpmbuild structure... "
 mkdir -p ${HOME}/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS,tmp}
@@ -111,6 +118,11 @@ echo "RPM environment is up"
 }
 
 func_build_rpm() {
+# Check RPM env
+if [ ! -d "${HOME}/rpmbuild" || ! -f "${HOME}/.rpmmacros" ]; then
+    func_setup_rpm
+fi
+
 # Prepare local
 echo -n "Getting version and release... "
 VERSION=$(${BIN} getversion | tail -1) || "undefined"
@@ -165,12 +177,19 @@ fi
 echo "Source root: ${SOURCE_ROOT}"
 echo "Project root: ${PROJECT_ROOT}"
 
-# Check for requirements
-REQUIREMENTS=(virtualenv rpm-build redhat-rpm-config)
-list_check programm_exists ${REQUIREMENTS[@]}
-list_check programm_exists ${BUILD_REQUIREMENTS[@]}
+# Check for virtualenv
+if ! command_exists virtualenv; then
+    echo "virtualenv needed"
+    exit 1
+fi
 
-if [[ ! $1 || ! ${CUSTOM_COMMANDS[*]} =~ $1 ]] ; then
+CMD=$1
+if [ ! -d ${ENV_ROOT} ]; then
+    CMD=func_setup_env
+fi
+
+# Process
+if [[ ! $CMD || ! ${CUSTOM_COMMANDS[*]} =~ $CMD ]] ; then
     ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@
 else
     FUNC="func_${1}"
