@@ -185,7 +185,7 @@ fi
 
 CMD=$1
 if [ ! -d ${ENV_ROOT} ]; then
-    CMD=func_setup_env
+    CMD=setup_env
 fi
 
 # Process
