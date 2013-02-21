@@ -189,10 +189,10 @@ if [ ! -d ${ENV_ROOT} ]; then
 fi
 
 # Process
-if [[ ! $CMD || ! ${CUSTOM_COMMANDS[*]} =~ $CMD ]] ; then
+if [[ -z ${CMD} || ! ${CUSTOM_COMMANDS[*]} =~ ${CMD} ]] ; then
     ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@
 else
-    FUNC="func_${1}"
+    FUNC="func_${CMD}"
     echo "Calling ${FUNC}"
     ${FUNC}
 fi
