@@ -1,4 +1,5 @@
 %define __prefix /usr/opt
+%define __spec_install_post /usr/lib/rpm/brp-compress || :
 
 Summary:superprogramm summary
 Name:superprogramm
@@ -28,7 +29,8 @@ fi
 # rpmbuild/BUILD
 mkdir -p %{name}
 cp -R %{source0}/src %{name}/
-rm -rf %{name}/src/%{name}/.git*
+cp -R %{source0}/env %{name}/
+rm -rf %{name}/src/.git*
 find %{name}/ -type f -name "*.py[co]" -delete
 
 # replace builddir path
@@ -105,3 +107,6 @@ rm -rf %{buildroot}
 #%config(noreplace) %{_sysconfdir}/%{name}/django.conf
 #%config(noreplace) %{_sysconfdir}/%{name}/gunicorn.conf
 %{_bindir}/%{name}
+%defattr(-,%{name},%{name})
+%{__prefix}/%{name}/media/
+%{__prefix}/%{name}/static/
