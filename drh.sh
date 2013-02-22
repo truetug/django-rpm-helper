@@ -4,11 +4,18 @@
 #       /src - source with manage.py
 #       /packages - pip2pi
 
+# .../src
+#       changelog.txt
+#       /share
+#           website.spec
+#       
 
 # settings
+GIT_SOURCE=""
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
+# TODO: get from special file in project
 BUILD_REQUIREMENTS=(python python-devel libjpeg libpng zlib freetype librabbitmq librabbitmq-devel mysql mysql-server mysql-devel) # build requirements
 
 
@@ -17,7 +24,8 @@ BIN=$(readlink "${0}")
 if [ -z ${BIN} ]; then
     BIN=${0}
 fi
-PROJECT_ROOT=$(dirname $(cd $(dirname "${BIN}"); pwd))
+BIN_ROOT=$(cd $(dirname "${BIN}"); pwd)
+PROJECT_ROOT=$(dirname ${BIN_ROOT})
 SOURCE_ROOT=${PROJECT_ROOT}/src
 
 PACKAGES_ROOT=${PROJECT_ROOT}/packages
@@ -64,7 +72,7 @@ list_check() {
     done
 
     if ! $IS_OK; then
-        echo "Install: ${REQUIREMENTS[@]}"
+        echo "Install: ${TO_INSTALL[@]}"
         exit
     fi
 }
@@ -74,6 +82,8 @@ func_setup_env() {
     if [ ! -f ${ENV_ROOT}/bin/python ] ; then
         echo "Creating virtualenv... "
         virtualenv --distribute ${ENV_ROOT}
+        # Update distribute, because default version is too old
+        ${ENV_ROOT}/bin/pip easy_install -U distribute
     fi
 
     # Update requirements
@@ -88,8 +98,11 @@ func_setup_env() {
 
 func_update_env() {
     # Update requirements
-    pip2pi ${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt
-    ${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
+    #pip2pi ${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt
+    #${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
+    ${ENV_ROOT}/bin/pip install --index-url=${PYPI} -r ${SOURCE_ROOT}/requirements.txt --upgrade
+    virtualenv --relocatable ${ENV_ROOT}
+
 }
 
 
@@ -119,13 +132,13 @@ echo "RPM environment is up"
 
 func_build_rpm() {
 # Check RPM env
-if [ ! -d "${HOME}/rpmbuild" || ! -f "${HOME}/.rpmmacros" ]; then
+if [ ! -d "${HOME}/rpmbuild" ] || [ ! -f "${HOME}/.rpmmacros" ]; then
     func_setup_rpm
 fi
 
 # Prepare local
 echo -n "Getting version and release... "
-VERSION=$(${BIN} getversion | tail -1) || "undefined"
+VERSION=$(cat ${SOURCE_ROOT}/changelog.txt | head -n 1) || "undefined"
 RELEASE=$(date +%s)
 echo "${VERSION}-${RELEASE}"
 
@@ -139,6 +152,7 @@ PARAMS=()
 
 PARAMS+=("--define \"version ${VERSION}\"")
 PARAMS+=("--define \"release ${RELEASE}\"")
+PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
 
 LOCAL_PYPI=${PACKAGES_ROOT}/simple
 if [ -d ${LOCAL_PYPI} ]; then
@@ -157,7 +171,7 @@ if $IS_PURGE; then
     echo "OK"
 fi
 
-RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/${SPEC} ${PARAMS[@]}"
+RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/website.spec ${PARAMS[@]}"
 echo "Building with command: ${RPMBUILD}"
 
 # Find for "Wrote: /home/<username>/rpmbuild/RPMS/x86_64/<>programm name>-<version>-<release>.x86_64.rpm"
@@ -176,25 +190,48 @@ fi
 # Main
 echo "Source root: ${SOURCE_ROOT}"
 echo "Project root: ${PROJECT_ROOT}"
+CMD=$1
 
 # Check for virtualenv
 if ! command_exists virtualenv; then
-    echo "virtualenv needed"
+    echo "Virtualenv is needed"
+    echo "Use: sudo easy_install virtualenv"
     exit 1
 fi
 
-CMD=$1
-if [ ! -d ${ENV_ROOT} ]; then
-    CMD=setup_env
+# Clonning or updating source if needed
+if [ ! -d ${SOURCE_ROOT} ]; then
+    echo -n "Clonning source from ${GIT_SOURCE}... "
+    git clone -q ${GIT_SOURCE} ${SOURCE_ROOT}
+    echo "OK"
+else
+    echo -n "Updating source from ${GIT_SOURCE}... "
+    cd ${SOURCE_ROOT}
+    git checkout .
+    if [ $(git pull | grep "requirements.txt") ]; then
+        func_update_env
+    fi
+    echo "OK"
 fi
 
-# Process
-if [[ -z ${CMD} || ! ${CUSTOM_COMMANDS[*]} =~ ${CMD} ]] ; then
-    ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@
-else
-    FUNC="func_${CMD}"
-    echo "Calling ${FUNC}"
-    ${FUNC}
+# Setup virtualenv if needed
+if [ ! -d ${ENV_ROOT} ]; then
+    func_setup_env
 fi
+
+if [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
+    echo -n "Copying runfile... "
+    mkdir -p ${SOURCE_ROOT}/bin/
+    cp ${BIN_ROOT}/bin_examples/manage.sh ${SOURCE_ROOT}/bin/
+    echo "OK"
+fi
+
+if [ -z ${CMD} ]; then
+    CMD="build_rpm"
+fi
+
+FUNC="func_${CMD}"
+echo "Calling ${FUNC}"
+${FUNC}
 
 exit $RETVAL
