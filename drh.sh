@@ -82,7 +82,7 @@ func_setup_env() {
         echo "Creating virtualenv... "
         virtualenv --distribute ${ENV_ROOT}
         # Update distribute, because default version is too old
-        ${ENV_ROOT}/bin/pip easy_install -U distribute
+        ${ENV_ROOT}/bin/easy_install -U distribute
     fi
 
     # Update requirements
