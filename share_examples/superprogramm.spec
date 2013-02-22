@@ -28,9 +28,14 @@ fi
 %build
 # rpmbuild/BUILD
 mkdir -p %{name}
-cp -R %{source0}/src %{name}/
-cp -R %{source0}/env %{name}/
+
+# Source
+cp -R %{source0} %{name}/
 rm -rf %{name}/src/.git*
+# Virtualenv
+cp -R %{source1} %{name}/
+
+# remove pyc
 find %{name}/ -type f -name "*.py[co]" -delete
 
 # replace builddir path
