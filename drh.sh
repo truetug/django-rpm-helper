@@ -16,7 +16,6 @@ IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
 # TODO: get from special file in project
-BUILD_REQUIREMENTS=(python python-devel libjpeg libpng zlib freetype librabbitmq librabbitmq-devel mysql mysql-server mysql-devel) # build requirements
 
 
 # predifined
@@ -102,7 +101,6 @@ func_update_env() {
     #${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
     ${ENV_ROOT}/bin/pip install --index-url=${PYPI} -r ${SOURCE_ROOT}/requirements.txt --upgrade
     virtualenv --relocatable ${ENV_ROOT}
-
 }
 
 
@@ -110,6 +108,7 @@ func_setup_rpm() {
 # Check requirements
 REQUIREMENTS=(rpm-build redhat-rpm-config)
 list_check programm_exists ${REQUIREMENTS[@]}
+BUILD_REQUIREMENTS=( $(cat ${SOURCE_ROOT}/build_requirements.txt) )
 list_check programm_exists ${BUILD_REQUIREMENTS[@]}
 
 # Create directory structure
@@ -153,6 +152,7 @@ PARAMS=()
 PARAMS+=("--define \"version ${VERSION}\"")
 PARAMS+=("--define \"release ${RELEASE}\"")
 PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
+PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
 
 LOCAL_PYPI=${PACKAGES_ROOT}/simple
 if [ -d ${LOCAL_PYPI} ]; then
@@ -174,7 +174,7 @@ fi
 RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/website.spec ${PARAMS[@]}"
 echo "Building with command: ${RPMBUILD}"
 
-if [ $(eval ${RPMBUILD}) -eq 0 ]; then
+if $(eval ${RPMBUILD}); then
     echo "Building complete"
 
     RESULT=$(ls -1t ${HOME}/rpmbuild/RPMS/x86_64/ | head -n 1)
@@ -202,11 +202,15 @@ fi
 
 # Clonning or updating source if needed
 if [ ! -d ${SOURCE_ROOT} ]; then
+    if [ -z ${GIT_SOURCE} ]; then
+        echo "Git source is undefined"
+        exit 1
+    fi
     echo -n "Clonning source from ${GIT_SOURCE}... "
     git clone -q ${GIT_SOURCE} ${SOURCE_ROOT}
     echo "OK"
 else
-    echo -n "Updating source from ${GIT_SOURCE}... "
+    echo -n "Updating source... "
     cd ${SOURCE_ROOT}
     git checkout .
     if [ $(git pull | grep "requirements.txt") ]; then
