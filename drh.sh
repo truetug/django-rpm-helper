@@ -96,6 +96,10 @@ func_setup_env() {
 
 
 func_update_env() {
+    # Check build requirements
+    BUILD_REQUIREMENTS=( $(cat ${SOURCE_ROOT}/build_requirements.txt) )
+    list_check programm_exists ${BUILD_REQUIREMENTS[@]}
+
     # Update requirements
     #pip2pi ${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt
     #${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
@@ -108,8 +112,6 @@ func_setup_rpm() {
 # Check requirements
 REQUIREMENTS=(rpm-build redhat-rpm-config)
 list_check programm_exists ${REQUIREMENTS[@]}
-BUILD_REQUIREMENTS=( $(cat ${SOURCE_ROOT}/build_requirements.txt) )
-list_check programm_exists ${BUILD_REQUIREMENTS[@]}
 
 # Create directory structure
 echo -n "Creating ${HOME}/rpmbuild structure... "
@@ -153,13 +155,6 @@ PARAMS+=("--define \"version ${VERSION}\"")
 PARAMS+=("--define \"release ${RELEASE}\"")
 PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
 PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
-
-LOCAL_PYPI=${PACKAGES_ROOT}/simple
-if [ -d ${LOCAL_PYPI} ]; then
-    echo "Use pip2pi: ${LOCAL_PYPI}"
-    PYPI="file://${LOCAL_PYPI}"
-fi
-PARAMS+=("--define \"__pypi ${PYPI}\"")
 
 if $IS_QUIET; then
     PARAMS+=("--quiet")
