@@ -174,13 +174,14 @@ fi
 RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/website.spec ${PARAMS[@]}"
 echo "Building with command: ${RPMBUILD}"
 
-# Find for "Wrote: /home/<username>/rpmbuild/RPMS/x86_64/<>programm name>-<version>-<release>.x86_64.rpm"
-RESULT=$(eval ${RPMBUILD} | awk '/Wrote:/ {print $2}')
-RETVAL=$?
-
-if [ $RETVAL -eq 0 ]; then
+if [ $(eval ${RPMBUILD}) -eq 0 ]; then
     echo "Building complete"
-    echo "Install command: sudo rpm -Uvh ${RESULT}"
+
+    RESULT=$(ls -1t ${HOME}/rpmbuild/RPMS/x86_64/ | head -n 1)
+    if [ -n ${RESULT} ]; then
+        echo "Install command: sudo rpm -Uvh ${RESULT}"
+    fi
+
 else
     echo "Building failed"
 fi
