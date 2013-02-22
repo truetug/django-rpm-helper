@@ -89,7 +89,7 @@ func_setup_env() {
 func_update_env() {
     # Update requirements
     pip2pi ${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt
-    ${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt --upgrade
+    ${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
 }
 
 
