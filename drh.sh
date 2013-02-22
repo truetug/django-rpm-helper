@@ -174,7 +174,7 @@ fi
 RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/website.spec ${PARAMS[@]}"
 echo "Building with command: ${RPMBUILD}"
 
-if $(eval ${RPMBUILD}); then
+if [ $(eval ${RPMBUILD}) ]; then
     echo "Building complete"
 
     RESULT=$(ls -1t ${HOME}/rpmbuild/RPMS/x86_64/ | head -n 1)
