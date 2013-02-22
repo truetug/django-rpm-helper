@@ -167,17 +167,17 @@ fi
 
 if $IS_PURGE; then
     echo -n "Purging RPMS directory... "
-    rm -Rf ${HOME}/rpmbuild/RPMS/* > /dev/null 2>&1
+    find ${HOME}/rpmbuild/RPMS/ -name "*.rpm" -delete
     echo "OK"
 fi
 
 RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/website.spec ${PARAMS[@]}"
 echo "Building with command: ${RPMBUILD}"
 
-if [ $(eval ${RPMBUILD}) ]; then
+if eval ${RPMBUILD}; then
     echo "Building complete"
 
-    RESULT=$(ls -1t ${HOME}/rpmbuild/RPMS/x86_64/ | head -n 1)
+    RESULT=$(ls -1t $(find ${HOME}/rpmbuild/RPMS/ -name "*.rpm") | head -n 1)
     if [ -n ${RESULT} ]; then
         echo "Install command: sudo rpm -Uvh ${RESULT}"
     fi
