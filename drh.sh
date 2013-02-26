@@ -17,6 +17,7 @@ IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
 # TODO: get from special file in project
 
+PARAM="$@";
 
 # predifined
 BIN=$(readlink "${0}")
@@ -25,7 +26,12 @@ if [ -z ${BIN} ]; then
 fi
 BIN_ROOT=$(cd $(dirname "${BIN}"); pwd)
 PROJECT_ROOT=$(dirname ${BIN_ROOT})
-SOURCE_ROOT=${PROJECT_ROOT}/src
+
+if [${PARAM} == '']; then
+    SOURCE_ROOT=${PROJECT_ROOT}/src
+else
+    SOURCE_ROOT=${PARAM}
+fi
 
 PACKAGES_ROOT=${PROJECT_ROOT}/packages
 ENV_ROOT=${PROJECT_ROOT}/env
