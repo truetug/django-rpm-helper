@@ -12,6 +12,7 @@
 
 # settings
 GIT_SOURCE=""
+IS_GIT=true
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
@@ -20,9 +21,7 @@ PYPI="http://pypi.mail.ru/simple" # pypi index-url
 
 # predifined
 BIN=$(readlink "${0}")
-if [ -z ${BIN} ]; then
-    BIN=${0}
-fi
+[ -z ${BIN} ] && BIN=${0}
 BIN_ROOT=$(cd $(dirname "${BIN}"); pwd)
 PROJECT_ROOT=$(dirname ${BIN_ROOT})
 SOURCE_ROOT=${PROJECT_ROOT}/src
@@ -31,9 +30,7 @@ PACKAGES_ROOT=${PROJECT_ROOT}/packages
 ENV_ROOT=${PROJECT_ROOT}/env
 CUSTOM_COMMANDS=(setup_env setup_rpm build_rpm)
 
-if [ -z ${PYPI} ]; then
-    PYPI="http://pypi.python.org/simple"
-fi
+[ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
 
 RETVAL=0
 
@@ -76,6 +73,41 @@ list_check() {
     fi
 }
 
+func_check_env() {
+    # Check for virtualenv
+    if ! command_exists virtualenv; then
+        echo "Virtualenv is needed"
+        echo "Use: sudo easy_install virtualenv"
+        exit 1
+    fi
+
+    # Clonning or updating source if needed
+    if $IS_GIT; then
+        if [ ! -d ${SOURCE_ROOT} ]; then
+            if [ -z ${GIT_SOURCE} ]; then
+                echo "Git source is undefined"
+                exit 1
+            fi
+            echo -n "Clonning source from ${GIT_SOURCE}... "
+            git clone -q ${GIT_SOURCE} ${SOURCE_ROOT}
+            echo "OK"
+        else
+            echo -n "Updating source... "
+            cd ${SOURCE_ROOT}
+            git checkout .
+            if [ $(git pull | grep "requirements.txt") ]; then
+                func_update_env
+            fi
+            echo "OK"
+        fi
+    fi
+
+    # Setup virtualenv if needed
+    if [ ! -d ${ENV_ROOT} ] || [ ! $(${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py validate) ]; then
+        func_setup_env
+    fi
+}
+
 func_setup_env() {
     # Create virtualenv if not exists
     if [ ! -f ${ENV_ROOT}/bin/python ] ; then
@@ -103,8 +135,12 @@ func_update_env() {
     # Update requirements
     #pip2pi ${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt
     #${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
-    ${ENV_ROOT}/bin/pip install --index-url=${PYPI} -r ${SOURCE_ROOT}/requirements.txt --upgrade
-    virtualenv --relocatable ${ENV_ROOT}
+    if ${ENV_ROOT}/bin/pip install --index-url=${PYPI} -r ${SOURCE_ROOT}/requirements.txt --upgrade; then
+        virtualenv --relocatable ${ENV_ROOT}
+    else
+        echo "Problem with virtualenv"
+        exit 1
+    fi
 }
 
 
@@ -153,6 +189,7 @@ PARAMS=()
 
 PARAMS+=("--define \"version ${VERSION}\"")
 PARAMS+=("--define \"release ${RELEASE}\"")
+
 PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
 PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
 
@@ -188,36 +225,7 @@ echo "Source root: ${SOURCE_ROOT}"
 echo "Project root: ${PROJECT_ROOT}"
 CMD=$1
 
-# Check for virtualenv
-if ! command_exists virtualenv; then
-    echo "Virtualenv is needed"
-    echo "Use: sudo easy_install virtualenv"
-    exit 1
-fi
-
-# Clonning or updating source if needed
-if [ ! -d ${SOURCE_ROOT} ]; then
-    if [ -z ${GIT_SOURCE} ]; then
-        echo "Git source is undefined"
-        exit 1
-    fi
-    echo -n "Clonning source from ${GIT_SOURCE}... "
-    git clone -q ${GIT_SOURCE} ${SOURCE_ROOT}
-    echo "OK"
-else
-    echo -n "Updating source... "
-    cd ${SOURCE_ROOT}
-    git checkout .
-    if [ $(git pull | grep "requirements.txt") ]; then
-        func_update_env
-    fi
-    echo "OK"
-fi
-
-# Setup virtualenv if needed
-if [ ! -d ${ENV_ROOT} ]; then
-    func_setup_env
-fi
+func_check_env
 
 if [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
     echo -n "Copying runfile... "
@@ -226,9 +234,7 @@ if [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
     echo "OK"
 fi
 
-if [ -z ${CMD} ]; then
-    CMD="build_rpm"
-fi
+[ -z ${CMD} ] && CMD="build_rpm"
 
 FUNC="func_${CMD}"
 echo "Calling ${FUNC}"
