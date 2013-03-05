@@ -1,4 +1,6 @@
 #!/bin/sh
+# Argument order = -s source -p pypi -c -q
+#
 # .../<anyprojectname>
 #       /env - virtualenv
 #       /src - source with manage.py
@@ -8,43 +10,98 @@
 #       changelog.txt
 #       /share
 #           website.spec
-#       
+#
 
-# settings
-GIT_SOURCE=""
-IS_GIT=true
-IS_PURGE=true # Clean RPM directory before build
-IS_QUIET=false # rpmbuild with --quite option
-PYPI="http://pypi.mail.ru/simple" # pypi index-url
-# TODO: get from special file in project
+usage() {
+cat << EOF
+usage: $0 options
 
-PARAM="$@";
+This script helps to build RPM package from python code
+
+OPTIONS:
+   -h           Show this message
+   -s url       Path to directory with source or git url
+   -p url       PyPi url
+   -w path      Working directory
+   -d           Do not clear RPM directory before building
+   -q           Quite building
+   -f path      Path to SPEC-file
+EOF
+}
 
 # predifined
 BIN=$(readlink "${0}")
 [ -z ${BIN} ] && BIN=${0}
-BIN_ROOT=$(cd $(dirname "${BIN}"); pwd)
-PROJECT_ROOT=$(dirname ${BIN_ROOT})
-
-if [${PARAM} == '']; then
-    SOURCE_ROOT=${PROJECT_ROOT}/src
-else
-    SOURCE_ROOT=${PARAM}
-fi
-
-PACKAGES_ROOT=${PROJECT_ROOT}/packages
-ENV_ROOT=${PROJECT_ROOT}/env
-CUSTOM_COMMANDS=(setup_env setup_rpm build_rpm)
-
-[ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
-
+BIN_ROOT="$(cd $(dirname "${BIN}"); pwd)"
 RETVAL=0
 
+# settings
+SOURCE=""
+WORKING_DIR=""
+IS_GIT=true
+IS_PURGE=true # Clean RPM directory before build
+IS_QUIET=false # rpmbuild with --quite option
+PYPI="http://pypi.mail.ru/simple" # pypi index-url
+
+while [ "$1" != "" ]; do
+    case $1 in
+        -s | --source )
+            shift
+            SOURCE=$1
+            ;;
+        -p | --pypi )
+            shift
+            PYPI=$1
+            ;;
+        -d | --dirty )
+            IS_PURGE=false
+            ;;
+        -q | --quite )
+            IS_QUIET=true
+            ;;
+        -w | --workdir )
+            shift
+            WORKING_DIR=$1
+            ;;
+        -f | --file )
+            shift
+            SPEC=$1
+            ;;
+        -h | --help | * )
+            usage
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+if [ -z $SOURCE ]; then
+    echo 'No source'
+    exit 1
+else
+    SOURCE="$(cd ${SOURCE}; pwd)"
+fi
+
+[ -z ${WORKING_DIR} ] && WORKING_DIR="${BIN_ROOT}/projects" || WORKING_DIR="$(cd ${WORKING_DIR}; pwd)"
+PROJECT_NAME="$(basename ${SOURCE})"
+PROJECT_ROOT="${WORKING_DIR}/${PROJECT_NAME}"
+SOURCE_ROOT="${PROJECT_ROOT}/src"
+PACKAGES_ROOT="${PROJECT_ROOT}/packages"
+ENV_ROOT="${PROJECT_ROOT}/env"
+[ -z ${SPEC} ] && SPEC="${SOURCE_ROOT}/share/website.spec"
+[ -d ${SOURCE} ] && [ ! -d ${SOURCE}/.git ] && IS_GIT=false
+[ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
+
+echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
+echo "Project name: ${PROJECT_NAME}"
+echo "PyPi: ${PYPI}"
+echo "SPEC-file: ${SPEC}"
 
 # functions
 command_exists() {
     command -v "$1" > /dev/null 2>&1
 }
+
 
 programm_exists() {
     if ! command_exists rpm; then
@@ -53,6 +110,7 @@ programm_exists() {
     fi
     rpm -qa | grep $1 > /dev/null 2>&1
 }
+
 
 list_check() {
     func=${1}
@@ -79,6 +137,12 @@ list_check() {
     fi
 }
 
+
+managepy() {
+    ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@ > /dev/null 2>&1
+}
+
+
 func_check_env() {
     # Check for virtualenv
     if ! command_exists virtualenv; then
@@ -87,15 +151,17 @@ func_check_env() {
         exit 1
     fi
 
+    [ ! -d ${WORKING_DIR} ] && mkdir -p ${WORKING_DIR}
+
     # Clonning or updating source if needed
     if $IS_GIT; then
         if [ ! -d ${SOURCE_ROOT} ]; then
-            if [ -z ${GIT_SOURCE} ]; then
+            if [ -z ${SOURCE} ]; then
                 echo "Git source is undefined"
                 exit 1
             fi
-            echo -n "Clonning source from ${GIT_SOURCE}... "
-            git clone -q ${GIT_SOURCE} ${SOURCE_ROOT}
+            echo -n "Clonning source from ${SOURCE}... "
+            git clone -q ${SOURCE} ${SOURCE_ROOT}
             echo "OK"
         else
             echo -n "Updating source... "
@@ -106,25 +172,36 @@ func_check_env() {
             fi
             echo "OK"
         fi
+    else
+        cp -R ${SOURCE} ${WORKING_DIR}
+    fi
+
+    if [ ! -f ${SPEC} ]; then
+        echo "SPEC-file does not exists"
+        exit 1
     fi
 
     # Setup virtualenv if needed
-    if [ ! -d ${ENV_ROOT} ] || [ ! $(${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py validate) ]; then
+    if [ ! -d ${ENV_ROOT} ] || ! managepy validate; then
         func_setup_env
     fi
 }
+
 
 func_setup_env() {
     # Create virtualenv if not exists
     if [ ! -f ${ENV_ROOT}/bin/python ] ; then
         echo "Creating virtualenv... "
         virtualenv --distribute ${ENV_ROOT}
+        RETVAL=$?
+        echo $RETVAL
+
         # Update distribute, because default version is too old
         ${ENV_ROOT}/bin/easy_install -U distribute
     fi
 
     # Update requirements
-    if [ ! -d ${PACKAGES_ROOT} ]; then
+    if ! managepy validate ; then
         echo "Install requirements... "
         func_update_env
     fi
@@ -163,7 +240,7 @@ echo "OK"
 # Create rpmmacros
 echo -n "Creating ${HOME}/.rpmmacros... "
 (
-cat <<'EOF'
+cat << EOF
 %_topdir %(echo $HOME)/rpmbuild
 %_tmppath %(echo $HOME)/rpmbuild/tmp
 EOF
