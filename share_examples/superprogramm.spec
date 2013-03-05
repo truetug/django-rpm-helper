@@ -82,7 +82,7 @@ if [ $1 -gt 1 ]; then
 else
     echo "Install"
 
-    /usr/sbin/adduser -M -d %{__prefix}/%{name} -G %{name} -s /sbin/nologin -c 'The %{name} website' %{name} >/dev/null 2>&1 ||:
+    id %{name} > /dev/null 2>&1 || /usr/sbin/adduser -M -d %{__prefix}/%{name} -s /sbin/nologin %{name}
 
     #/sbin/chkconfig --list %{name}-gunicorn > /dev/null 2>&1 || /sbin/chkconfig --add %{name}-gunicorn
     #/sbin/chkconfig --list %{name}-celeryd > /dev/null 2>&1 || /sbin/chkconfig --add %{name}-celeryd

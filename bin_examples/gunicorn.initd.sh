@@ -22,8 +22,7 @@ pidfile="/var/run/${prog}.pid"
 lockfile="/var/lock/subsys/${prog}"
 
 bin="/usr/bin/${name}"
-#opts="run_gunicorn -c /etc/${name}/gunicorn.conf"
-opts="run_gunicorn -D -w 5 -u $(id -u ${name}) -g $(id -g ${name}) -p ${pidfile} --error-logfile=/var/log/{$name}/error.log"
+opts="run_gunicorn -c /etc/${name}/gunicorn.conf"
 
 RETVAL=0
 
