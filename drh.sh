@@ -1,4 +1,5 @@
 #!/bin/sh
+#
 # Argument order = -s source -p pypi -c -q
 #
 # .../<anyprojectname>
@@ -22,6 +23,7 @@ OPTIONS:
    -h           Show this message
    -s url       Path to directory with source or git url
    -p url       PyPi url
+   -e           Path to virtualenv directory
    -w path      Working directory
    -d           Do not clear RPM directory before building
    -q           Quite building
@@ -37,8 +39,10 @@ RETVAL=0
 
 # settings
 SOURCE=""
+ENV_ROOT=""
 WORKING_DIR=""
 IS_GIT=true
+IS_DJANGO=false
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
@@ -52,6 +56,10 @@ while [ "$1" != "" ]; do
         -p | --pypi )
             shift
             PYPI=$1
+            ;;
+        -e | --env )
+            shift
+            ENV_ROOT=$1
             ;;
         -d | --dirty )
             IS_PURGE=false
@@ -87,8 +95,9 @@ PROJECT_NAME="$(basename ${SOURCE})"
 PROJECT_ROOT="${WORKING_DIR}/${PROJECT_NAME}"
 SOURCE_ROOT="${PROJECT_ROOT}/src"
 PACKAGES_ROOT="${PROJECT_ROOT}/packages"
-ENV_ROOT="${PROJECT_ROOT}/env"
+[ -z $ENV_ROOT ] && ENV_ROOT="${PROJECT_ROOT}/env"
 [ -z ${SPEC} ] && SPEC="${SOURCE_ROOT}/share/website.spec"
+[ -f ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py ] IS_DJANGO=true
 [ -d ${SOURCE} ] && [ ! -d ${SOURCE}/.git ] && IS_GIT=false
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
 
@@ -182,7 +191,7 @@ func_check_env() {
     fi
 
     # Setup virtualenv if needed
-    if [ ! -d ${ENV_ROOT} ] || ! managepy validate; then
+    if ! $IS_DJANGO || ([ ! -d ${ENV_ROOT} ] || ! managepy validate); then
         func_setup_env
     fi
 }
@@ -201,7 +210,7 @@ func_setup_env() {
     fi
 
     # Update requirements
-    if ! managepy validate ; then
+    if ! $IS_DJANGO || ! managepy validate ; then
         echo "Install requirements... "
         func_update_env
     fi
@@ -263,9 +272,9 @@ RELEASE=$(date +%s)
 echo "${VERSION}-${RELEASE}"
 
 # Copy SPEC file
-echo -n "Copying ${SOURCE_ROOT}/share/website.spec to ${HOME}/rpmbuild/SPECS/... "
-cp ${SOURCE_ROOT}/share/website.spec ${HOME}/rpmbuild/SPECS/
-echo "OK"
+#echo -n "Copying ${SPEC} to ${HOME}/rpmbuild/SPECS/... "
+#cp ${SPEC} ${HOME}/rpmbuild/SPECS/
+#echo "OK"
 
 # Build RPM
 PARAMS=()
@@ -286,7 +295,7 @@ if $IS_PURGE; then
     echo "OK"
 fi
 
-RPMBUILD="rpmbuild -bb ${HOME}/rpmbuild/SPECS/website.spec ${PARAMS[@]}"
+RPMBUILD="rpmbuild -bb ${SPEC} ${PARAMS[@]}"
 echo "Building with command: ${RPMBUILD}"
 
 if eval ${RPMBUILD}; then
@@ -310,7 +319,7 @@ CMD=$1
 
 func_check_env
 
-if [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
+if $IS_DJANGO && [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
     echo -n "Copying runfile... "
     mkdir -p ${SOURCE_ROOT}/bin/
     cp ${BIN_ROOT}/bin_examples/manage.sh ${SOURCE_ROOT}/bin/
