@@ -1,11 +1,26 @@
 #!/bin/sh
+BINARY="manage.py"
+VIRTUALENV_DIRECTORY="env"
 
-BIN=$(readlink "${0}")
-if [ -z ${BIN} ]; then
-    BIN=${0}
+SELF_DIR=$(readlink "${0}"); [ -z ${SELF_DIR} ] && SELF_DIR=${0}
+SOURCE_ROOT=$(cd $(dirname "${SELF_DIR}"); pwd)
+RESULT=false
+RETVAL=0
+
+while [ "${SOURCE_ROOT}" != "/" ] && ! $RESULT; do
+    [ -f ${SOURCE_ROOT}/${BINARY} ] && RESULT=true
+    ! $RESULT && SOURCE_ROOT=$(dirname "${SOURCE_ROOT}")
+done
+
+if $RESULT; then
+    echo "Execute ${SOURCE_ROOT}/${BINARY}"
+    PROJECT_ROOT=$(dirname "${SOURCE_ROOT}")
+    ENV_ROOT=${PROJECT_ROOT}/${VIRTUALENV_DIRECTORY}
+    
+    ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@
+else
+    echo "Error: ${BINARY} not found" >&2
+    RETVAL=1
 fi
-PROJECT_ROOT=$(dirname $(dirname $(cd $(dirname "${BIN}"); pwd)))
-SOURCE_ROOT=${PROJECT_ROOT}/src
-ENV_ROOT=${PROJECT_ROOT}/env
 
-${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@
+exit $RETVAL
