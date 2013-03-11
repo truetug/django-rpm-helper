@@ -36,8 +36,8 @@ PYPI="http://pypi.mail.ru/simple" # pypi index-url
 WITHOUT_CHECK=false
 
 ENV_DIR="env"
-SRC_DIR="src"
-PKG_DIR="packages"
+SOURCE_DIR="src"
+PACKAGES_DIR="packages"
 
 while [ "$1" != "" ]; do
     case $1 in
@@ -79,7 +79,7 @@ while [ "$1" != "" ]; do
 done
 
 if [ -z $SOURCE ]; then
-    echo 'No source'
+    echo 'No source' >&2
     usage
     exit 1
 else
@@ -89,13 +89,15 @@ fi
 [ -z ${WORKING_DIR} ] && WORKING_DIR="${BIN_ROOT}/projects" || WORKING_DIR="$(cd ${WORKING_DIR}; pwd)"
 PROJECT_NAME="$(basename ${SOURCE})"
 PROJECT_ROOT="${WORKING_DIR}/${PROJECT_NAME}"
-SOURCE_ROOT="${PROJECT_ROOT}/src"
-PACKAGES_ROOT="${PROJECT_ROOT}/packages"
-[ -z $ENV_ROOT ] && ENV_ROOT="${PROJECT_ROOT}/env"
+SOURCE_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
+PACKAGES_ROOT="${PROJECT_ROOT}/${PACKAGES_DIR}"
+[ -z $ENV_ROOT ] && ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
 [ -z ${SPEC} ] && SPEC="${SOURCE_ROOT}/share/website.spec"
 [ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
 [ -d ${SOURCE} ] && [ ! -d ${SOURCE}/.git ] && IS_GIT=false
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
+
+
 
 echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
 echo "Project name: ${PROJECT_NAME}"
@@ -151,8 +153,8 @@ managepy() {
 func_check_env() {
     # Check for virtualenv
     if ! command_exists virtualenv; then
-        echo "Virtualenv is needed"
-        echo "Use: sudo easy_install virtualenv"
+        echo "Virtualenv is needed" >&2
+        echo "Use: sudo easy_install virtualenv" >&2
         exit 1
     fi
 
@@ -162,7 +164,7 @@ func_check_env() {
     if $IS_GIT; then
         if [ ! -d ${SOURCE_ROOT} ]; then
             if [ -z ${SOURCE} ]; then
-                echo "Git source is undefined"
+                echo "Git source is undefined" >&2
                 exit 1
             fi
             echo -n "Clonning source from ${SOURCE}... "
@@ -182,7 +184,7 @@ func_check_env() {
     fi
 
     if [ ! -f ${SPEC} ]; then
-        echo "SPEC-file does not exists"
+        echo "SPEC-file does not exists" >&2
         exit 1
     fi
 
@@ -226,7 +228,7 @@ func_update_env() {
     if ${ENV_ROOT}/bin/pip install --index-url=${PYPI} -r ${SOURCE_ROOT}/requirements.txt --upgrade; then
         virtualenv --relocatable ${ENV_ROOT}
     else
-        echo "Problem with virtualenv"
+        echo "Problem with virtualenv" >&2
         exit 1
     fi
 }
@@ -276,7 +278,7 @@ func_build_rpm() {
     PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
     PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
 
-    if $IS_QUIET && PARAMS+=("--quiet")
+    $IS_QUIET && PARAMS+=("--quiet")
 
     if $IS_PURGE; then
         echo -n "Purging RPMS directory... "
@@ -296,7 +298,7 @@ func_build_rpm() {
         fi
 
     else
-        echo "Building failed"
+        echo "Building failed" >&2
         exit 1
     fi
 }
