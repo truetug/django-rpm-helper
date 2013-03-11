@@ -1,21 +1,7 @@
 #!/bin/sh
-#
-# Argument order = -s source -p pypi -c -q
-#
-# .../<anyprojectname>
-#       /env - virtualenv
-#       /src - source with manage.py
-#       /packages - pip2pi
-
-# .../src
-#       changelog.txt
-#       /share
-#           website.spec
-#
-
 usage() {
 cat << EOF
-usage: $0 options
+usage: $0 [options]
 
 This script helps to build RPM package from python code
 
@@ -27,6 +13,7 @@ OPTIONS:
    -w path      Working directory
    -d           Do not clear RPM directory before building
    -q           Quite building
+   -x           Do not check virtualenv
    -f path      Path to SPEC-file
 EOF
 }
@@ -46,6 +33,11 @@ IS_DJANGO=false
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
+WITHOUT_CHECK=false
+
+ENV_DIR="env"
+SRC_DIR="src"
+PKG_DIR="packages"
 
 while [ "$1" != "" ]; do
     case $1 in
@@ -75,6 +67,9 @@ while [ "$1" != "" ]; do
             shift
             SPEC=$1
             ;;
+        -x | --without-check )
+            WITHOUT_CHECK=true
+            ;;
         -h | --help | * )
             usage
             exit 1
@@ -85,6 +80,7 @@ done
 
 if [ -z $SOURCE ]; then
     echo 'No source'
+    usage
     exit 1
 else
     SOURCE="$(cd ${SOURCE}; pwd)"
@@ -97,7 +93,7 @@ SOURCE_ROOT="${PROJECT_ROOT}/src"
 PACKAGES_ROOT="${PROJECT_ROOT}/packages"
 [ -z $ENV_ROOT ] && ENV_ROOT="${PROJECT_ROOT}/env"
 [ -z ${SPEC} ] && SPEC="${SOURCE_ROOT}/share/website.spec"
-[ -f ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py ] IS_DJANGO=true
+[ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
 [ -d ${SOURCE} ] && [ ! -d ${SOURCE}/.git ] && IS_GIT=false
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
 
@@ -114,7 +110,7 @@ command_exists() {
 
 programm_exists() {
     if ! command_exists rpm; then
-        echo "This program only for RPM based distributives"
+        echo "This program only for RPM based distributives" >&2
         exit 1
     fi
     rpm -qa | grep $1 > /dev/null 2>&1
@@ -237,78 +233,72 @@ func_update_env() {
 
 
 func_setup_rpm() {
-# Check requirements
-REQUIREMENTS=(rpm-build redhat-rpm-config)
-list_check programm_exists ${REQUIREMENTS[@]}
+    # Check requirements
+    REQUIREMENTS=(rpm-build redhat-rpm-config)
+    list_check programm_exists ${REQUIREMENTS[@]}
 
-# Create directory structure
-echo -n "Creating ${HOME}/rpmbuild structure... "
-mkdir -p ${HOME}/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS,tmp}
-echo "OK"
+    # Create directory structure
+    echo -n "Creating ${HOME}/rpmbuild structure... "
+    mkdir -p ${HOME}/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS,tmp}
+    echo "OK"
 
-# Create rpmmacros
-echo -n "Creating ${HOME}/.rpmmacros... "
-(
-cat << EOF
-%_topdir %(echo $HOME)/rpmbuild
-%_tmppath %(echo $HOME)/rpmbuild/tmp
-EOF
-) > ${HOME}/.rpmmacros
-echo "OK"
+    # Copy rpmmacros
+    echo -n "Copying ${HOME}/.rpmmacros... "
+    cp ${BIN_ROOT}/share_examples/rpmmacros.sh ${HOME}/.rpmmacros
+    echo "OK"
 
-echo "RPM environment is up"
+    echo "RPM environment is up"
 }
 
 func_build_rpm() {
-# Check RPM env
-if [ ! -d "${HOME}/rpmbuild" ] || [ ! -f "${HOME}/.rpmmacros" ]; then
-    func_setup_rpm
-fi
-
-# Prepare local
-echo -n "Getting version and release... "
-VERSION=$(cat ${SOURCE_ROOT}/changelog.txt | head -n 1) || "undefined"
-RELEASE=$(date +%s)
-echo "${VERSION}-${RELEASE}"
-
-# Copy SPEC file
-#echo -n "Copying ${SPEC} to ${HOME}/rpmbuild/SPECS/... "
-#cp ${SPEC} ${HOME}/rpmbuild/SPECS/
-#echo "OK"
-
-# Build RPM
-PARAMS=()
-
-PARAMS+=("--define \"version ${VERSION}\"")
-PARAMS+=("--define \"release ${RELEASE}\"")
-
-PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
-PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
-
-if $IS_QUIET; then
-    PARAMS+=("--quiet")
-fi
-
-if $IS_PURGE; then
-    echo -n "Purging RPMS directory... "
-    find ${HOME}/rpmbuild/RPMS/ -name "*.rpm" -delete
-    echo "OK"
-fi
-
-RPMBUILD="rpmbuild -bb ${SPEC} ${PARAMS[@]}"
-echo "Building with command: ${RPMBUILD}"
-
-if eval ${RPMBUILD}; then
-    echo "Building complete"
-
-    RESULT=$(ls -1t $(find ${HOME}/rpmbuild/RPMS/ -name "*.rpm") | head -n 1)
-    if [ -n ${RESULT} ]; then
-        echo "Install command: sudo rpm -Uvh ${RESULT}"
+    # Check RPM env
+    if [ ! -d "${HOME}/rpmbuild" ] || [ ! -f "${HOME}/.rpmmacros" ]; then
+        func_setup_rpm
     fi
 
-else
-    echo "Building failed"
-fi
+    # Prepare local
+    echo -n "Getting version and release... "
+    VERSION=$(cat ${SOURCE_ROOT}/changelog.txt | head -n 1) || "undefined"
+    RELEASE=$(date +%s)
+    echo "${VERSION}-${RELEASE}"
+
+    # Copy SPEC file
+    #echo -n "Copying ${SPEC} to ${HOME}/rpmbuild/SPECS/... "
+    #cp ${SPEC} ${HOME}/rpmbuild/SPECS/
+    #echo "OK"
+
+    # Build RPM
+    PARAMS=()
+
+    PARAMS+=("--define \"version ${VERSION}\"")
+    PARAMS+=("--define \"release ${RELEASE}\"")
+
+    PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
+    PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
+
+    if $IS_QUIET && PARAMS+=("--quiet")
+
+    if $IS_PURGE; then
+        echo -n "Purging RPMS directory... "
+        find ${HOME}/rpmbuild/RPMS/ -name "*.rpm" -delete
+        echo "OK"
+    fi
+
+    RPMBUILD="rpmbuild -bb ${SPEC} ${PARAMS[@]}"
+    echo "Building with command: ${RPMBUILD}"
+
+    if eval ${RPMBUILD}; then
+        echo "Building complete"
+
+        RESULT=$(ls -1t $(find ${HOME}/rpmbuild/RPMS/ -name "*.rpm") | head -n 1)
+        if [ -n ${RESULT} ]; then
+            echo "Install command: sudo rpm -Uvh ${RESULT}"
+        fi
+
+    else
+        echo "Building failed"
+        exit 1
+    fi
 }
 
 
