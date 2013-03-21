@@ -9,6 +9,7 @@ OPTIONS:
    -h           Show this message
    -s url       Path to directory with source or git url
    -p url       PyPi url
+   -n name      Name of project
    -e           Path to virtualenv directory
    -w path      Working directory
    -d           Do not clear RPM directory before building
@@ -19,25 +20,34 @@ EOF
 }
 
 # predifined
+[ -d ~/.local/bin ] && PATH=~/.local/bin:$PATH
 BIN=$(readlink "${0}")
 [ -z ${BIN} ] && BIN=${0}
 BIN_ROOT="$(cd $(dirname "${BIN}"); pwd)"
 RETVAL=0
 
 # settings
+VIRTUALENV_BIN="virtualenv"
 SOURCE=""
+SPEC=""
 ENV_ROOT=""
-WORKING_DIR=""
+PROJECT_NAME=""
 IS_GIT=true
 IS_DJANGO=false
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 PYPI="http://pypi.mail.ru/simple" # pypi index-url
+
 WITHOUT_CHECK=false
+WITHOUT_PIP2PI=false
 
 ENV_DIR="env"
 SOURCE_DIR="src"
-PACKAGES_DIR="packages"
+
+WORKING_DIR="projects"
+PIP2PI_DIR="_packages"
+PIP_CACHE_DIR="_cache"
+TMP_DIR="_tmp"
 
 while [ "$1" != "" ]; do
     case $1 in
@@ -49,6 +59,10 @@ while [ "$1" != "" ]; do
             shift
             PYPI=$1
             ;;
+        -n | --name )
+            shift
+            PROJECT_NAME=$1
+            ;;
         -e | --env )
             shift
             ENV_ROOT=$1
@@ -59,9 +73,9 @@ while [ "$1" != "" ]; do
         -q | --quite )
             IS_QUIET=true
             ;;
-        -w | --workdir )
+        -w | --workingroot )
             shift
-            WORKING_DIR=$1
+            WORKING_ROOT=$1
             ;;
         -f | --file )
             shift
@@ -69,6 +83,9 @@ while [ "$1" != "" ]; do
             ;;
         -x | --without-check )
             WITHOUT_CHECK=true
+            ;;
+        --without-pip2pi )
+            WITHOUT_PIP2PI=true
             ;;
         -h | --help | * )
             usage
@@ -82,27 +99,29 @@ if [ -z $SOURCE ]; then
     echo 'No source' >&2
     usage
     exit 1
-else
-    SOURCE="$(cd ${SOURCE}; pwd)"
 fi
 
-[ -z ${WORKING_DIR} ] && WORKING_DIR="${BIN_ROOT}/projects" || WORKING_DIR="$(cd ${WORKING_DIR}; pwd)"
-PROJECT_NAME="$(basename ${SOURCE})"
-PROJECT_ROOT="${WORKING_DIR}/${PROJECT_NAME}"
-SOURCE_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
-PACKAGES_ROOT="${PROJECT_ROOT}/${PACKAGES_DIR}"
-[ -z $ENV_ROOT ] && ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
-[ -z ${SPEC} ] && SPEC="${SOURCE_ROOT}/share/website.spec"
+[ -d ${SOURCE} ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
+
+[ -z ${WORKING_ROOT} ] && WORKING_ROOT="${BIN_ROOT}/${WORKING_DIR}" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
+PIP2PI_ROOT="${WORKING_ROOT}/${PIP2PI_DIR}"
+PIP_CACHE_ROOT="${WORKING_ROOT}/${PIP_CACHE_DIR}"
+TMP_ROOT="${WORKING_ROOT}/${TMP_DIR}"
+
+[ -z ${PROJECT_NAME} ] && PROJECT_NAME="$(basename ${SOURCE})"
+PROJECT_ROOT="${WORKING_ROOT}/${PROJECT_NAME}"
+
+SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
+[ -z ${ENV_ROOT} ] && ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
+
 [ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
-[ -d ${SOURCE} ] && [ ! -d ${SOURCE}/.git ] && IS_GIT=false
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
-
-
 
 echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
 echo "Project name: ${PROJECT_NAME}"
 echo "PyPi: ${PYPI}"
-echo "SPEC-file: ${SPEC}"
+echo
+
 
 # functions
 command_exists() {
@@ -150,15 +169,22 @@ managepy() {
 }
 
 
+func_prepare() {
+    [ ! -d ${TMP_ROOT} ] && mkdir -p ${TMP_ROOT}
+    cd ${TMP_ROOT}
+    curl -O http://python-distribute.org/distribute_setup.py
+    python distribute_setup.py --user
+    easy_install virtualenv pip pip2pi
+}
+
+
 func_check_env() {
     # Check for virtualenv
-    if ! command_exists virtualenv; then
-        echo "Virtualenv is needed" >&2
-        echo "Use: sudo easy_install virtualenv" >&2
-        exit 1
-    fi
+    ! command_exists ${VIRTUALENV_BIN} && func_prepare
 
-    [ ! -d ${WORKING_DIR} ] && mkdir -p ${WORKING_DIR}
+    [ ! -d ${WORKING_ROOT} ] && mkdir -p ${WORKING_ROOT}
+    [ ! -d ${PIP2PI_ROOT} ] && mkdir -p ${PIP2PI_ROOT}
+    [ ! -d ${PIP_CACHE_ROOT} ] && mkdir -p ${PIP_CACHE_ROOT}
 
     # Clonning or updating source if needed
     if $IS_GIT; then
@@ -167,6 +193,7 @@ func_check_env() {
                 echo "Git source is undefined" >&2
                 exit 1
             fi
+
             echo -n "Clonning source from ${SOURCE}... "
             git clone -q ${SOURCE} ${SOURCE_ROOT}
             echo "OK"
@@ -174,22 +201,23 @@ func_check_env() {
             echo -n "Updating source... "
             cd ${SOURCE_ROOT}
             git checkout .
-            if [ $(git pull | grep "requirements.txt") ]; then
-                func_update_env
-            fi
+            git pull | grep "requirements.txt" && func_update_env
             echo "OK"
         fi
     else
-        cp -R ${SOURCE} ${WORKING_DIR}
+        cp -R ${SOURCE} ${WORKING_ROOT}
     fi
 
-    if [ ! -f ${SPEC} ]; then
+    [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC=$(cd $(dirname ${SPEC}); pwd)
+    if [ -z ${SPEC} ] || [ ! -f ${SPEC} ]; then
         echo "SPEC-file does not exists" >&2
         exit 1
+    else
+        echo "Use SPEC-file: ${SPEC}"
     fi
 
     # Setup virtualenv if needed
-    if ! $IS_DJANGO || ([ ! -d ${ENV_ROOT} ] || ! managepy validate); then
+    if $WITHOUT_CHECK || (! $IS_DJANGO || ([ ! -d ${ENV_ROOT} ] || ! managepy validate)); then
         func_setup_env
     fi
 }
@@ -199,9 +227,10 @@ func_setup_env() {
     # Create virtualenv if not exists
     if [ ! -f ${ENV_ROOT}/bin/python ] ; then
         echo "Creating virtualenv... "
-        virtualenv --distribute ${ENV_ROOT}
-        RETVAL=$?
-        echo $RETVAL
+        if ! ${VIRTUALENV_BIN} --distribute ${ENV_ROOT}; then
+            echo "Error while creating virtualenv" >&2
+            exit 1
+        fi
 
         # Update distribute, because default version is too old
         ${ENV_ROOT}/bin/easy_install -U distribute
@@ -219,14 +248,22 @@ func_setup_env() {
 
 func_update_env() {
     # Check build requirements
+    echo "Checking build requirements"
     BUILD_REQUIREMENTS=( $(cat ${SOURCE_ROOT}/build_requirements.txt) )
     list_check programm_exists ${BUILD_REQUIREMENTS[@]}
 
-    # Update requirements
-    #pip2pi ${PACKAGES_ROOT} -r ${SOURCE_ROOT}/requirements.txt
-    #${ENV_ROOT}/bin/pip install --index-url=file://${PACKAGES_ROOT}/simple -r ${SOURCE_ROOT}/requirements.txt --upgrade
-    if ${ENV_ROOT}/bin/pip install --index-url=${PYPI} -r ${SOURCE_ROOT}/requirements.txt --upgrade; then
+    # Update local requirements
+    ##[ -d ${PIP2PI_ROOT} ] && PYPI=file://${PIP2PI_ROOT}/simple
+    if ${ENV_ROOT}/bin/pip install -r ${SOURCE_ROOT}/requirements.txt --upgrade --index-url ${PYPI} --timeout=10 --use-mirrors --download-cache ${PIP_CACHE_ROOT}; then
         virtualenv --relocatable ${ENV_ROOT}
+
+        # http%3A%2F%2Fpypi.mail.ru%2Fpackages%2Fsource%2Fg%2Fgunicorn%2Fgunicorn-0.17.2.tar.gz
+        ##echo -n "Store cached packages..."
+        ##find . -type f -name "*.tar.gz" |
+        ##sed -e "s/.*%2F\(.*\)/\0 \1/g" |
+        ##while read path_from path_to; do mv ${path_from} ${PIP2PI_ROOT}/${path_to}; done
+        ##dir2pi ${PIP2PI_ROOT}
+        ##echo "OK"
     else
         echo "Problem with virtualenv" >&2
         exit 1
@@ -296,7 +333,6 @@ func_build_rpm() {
         if [ -n ${RESULT} ]; then
             echo "Install command: sudo rpm -Uvh ${RESULT}"
         fi
-
     else
         echo "Building failed" >&2
         exit 1
@@ -311,6 +347,7 @@ CMD=$1
 
 func_check_env
 
+# Copy bin-file if django and no bin present
 if $IS_DJANGO && [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
     echo -n "Copying runfile... "
     mkdir -p ${SOURCE_ROOT}/bin/
@@ -319,7 +356,6 @@ if $IS_DJANGO && [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
 fi
 
 [ -z ${CMD} ] && CMD="build_rpm"
-
 FUNC="func_${CMD}"
 echo "Calling ${FUNC}"
 ${FUNC}
