@@ -208,7 +208,7 @@ func_check_env() {
         cp -R ${SOURCE} ${WORKING_ROOT}
     fi
 
-    [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC=$(cd $(dirname ${SPEC}); pwd)
+    [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename {SPEC})"
     if [ -z ${SPEC} ] || [ ! -f ${SPEC} ]; then
         echo "SPEC-file does not exists" >&2
         exit 1
@@ -347,13 +347,14 @@ CMD=$1
 
 func_check_env
 
+# TODO: make binary for any command
 # Copy bin-file if django and no bin present
-if $IS_DJANGO && [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
-    echo -n "Copying runfile... "
-    mkdir -p ${SOURCE_ROOT}/bin/
-    cp ${BIN_ROOT}/bin_examples/manage.sh ${SOURCE_ROOT}/bin/
-    echo "OK"
-fi
+##if $IS_DJANGO && [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
+##    echo -n "Copying runfile... "
+##    mkdir -p ${SOURCE_ROOT}/bin/
+##    cp ${BIN_ROOT}/bin_examples/manage.sh ${SOURCE_ROOT}/bin/
+##    echo "OK"
+##fi
 
 [ -z ${CMD} ] && CMD="build_rpm"
 FUNC="func_${CMD}"
