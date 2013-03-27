@@ -208,7 +208,7 @@ func_check_env() {
         cp -R ${SOURCE} ${WORKING_ROOT}
     fi
 
-    [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename {SPEC})"
+    [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename ${SPEC})"
     if [ -z ${SPEC} ] || [ ! -f ${SPEC} ]; then
         echo "SPEC-file does not exists" >&2
         exit 1
@@ -249,7 +249,7 @@ func_setup_env() {
 func_update_env() {
     # Check build requirements
     echo "Checking build requirements"
-    BUILD_REQUIREMENTS=( $(cat ${SOURCE_ROOT}/build_requirements.txt) )
+    BUILD_REQUIREMENTS=( $(find ${SOURCE_ROOT} -type f -name "rpm_buildrequires.txt" -exec cat {}\;) )
     list_check programm_exists ${BUILD_REQUIREMENTS[@]}
 
     # Update local requirements
@@ -315,6 +315,12 @@ func_build_rpm() {
     PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
     PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
 
+    REQUIREMENTS=$(find ${SOURCE_ROOT} -type f -name "rpm_requires.txt" -exec cat {} \; | tr "\n" ",")
+    if [ ! -z "${REQUIREMENTS}" ]; then
+        echo "Use install requirements: ${REQUIREMENTS}"
+        PARAMS+=("--define \"requires ${REQUIREMENTS}\"")
+    fi
+
     $IS_QUIET && PARAMS+=("--quiet")
 
     if $IS_PURGE; then
@@ -323,10 +329,12 @@ func_build_rpm() {
         echo "OK"
     fi
 
+    echo
     RPMBUILD="rpmbuild -bb ${SPEC} ${PARAMS[@]}"
     echo "Building with command: ${RPMBUILD}"
 
     if eval ${RPMBUILD}; then
+        echo
         echo "Building complete"
 
         RESULT=$(ls -1t $(find ${HOME}/rpmbuild/RPMS/ -name "*.rpm") | head -n 1)
@@ -358,6 +366,7 @@ func_check_env
 
 [ -z ${CMD} ] && CMD="build_rpm"
 FUNC="func_${CMD}"
+echo
 echo "Calling ${FUNC}"
 ${FUNC}
 
