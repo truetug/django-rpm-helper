@@ -22,7 +22,7 @@ pidfile="/var/run/${prog}.pid"
 lockfile="/var/lock/subsys/${prog}"
 
 bin="/usr/bin/${name}"
-opts="run_gunicorn -c /etc/${name}/gunicorn.conf"
+opts="celeryd_detach -EB --pidfile=${pidfile} -c 5 -l INFO --logfile=/var/log/${name}/celeryd.log --uid=$(id -u ${name}) --gid=$(id -g ${name})"
 
 RETVAL=0
 
@@ -31,14 +31,15 @@ start() {
 	echo -n $"Starting $prog: "
 	${bin} ${opts}
 	RETVAL=$?
-	[ $RETVAL = 0 ] && { touch ${lockfile}; success; }
 	echo
+	[ $RETVAL = 0 ] && touch ${lockfile}
 	return $RETVAL
 }
 
 stop() {
+    # ${bin} celery multi stopwait celery --pidfile=${pidfile}
 	echo -n $"Stopping $prog: "
-	killproc -p ${pidfile} ${prog}
+	killproc -p ${pidfile} ${name}
 	RETVAL=$?
 	echo
 	[ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}

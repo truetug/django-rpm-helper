@@ -1,7 +1,7 @@
 #!/bin/sh
 name="superprogramm"
 
-# gunicorn startup script
+# common startup script for programms without pidfile option
 #
 # chkconfig: - 85 15
 # processname: $prog
@@ -22,17 +22,17 @@ pidfile="/var/run/${prog}.pid"
 lockfile="/var/lock/subsys/${prog}"
 
 bin="/usr/bin/${name}"
-opts="run_gunicorn -c /etc/${name}/gunicorn.conf"
+opts=""
 
 RETVAL=0
 
 
 start() {
 	echo -n $"Starting $prog: "
-	${bin} ${opts}
+	daemon --pidfile=${pidfile} ${bin} ${opts}
 	RETVAL=$?
-	[ $RETVAL = 0 ] && { touch ${lockfile}; success; }
 	echo
+	[ $RETVAL = 0 ] && touch ${lockfile}
 	return $RETVAL
 }
 

@@ -48,7 +48,7 @@ mkdir -p %{buildroot}%{__prefix}/%{name}
 mv %{name} %{buildroot}%{__prefix}/
 
 # hack for lib64
-rm %{buildroot}%{__prefix}/%{name}/env/lib64; ln -sf %{__prefix}/%{name}/env/lib %{buildroot}%{__prefix}/%{name}/env/lib64
+[ -d %{buildroot}%{__prefix}/%{name}/env/lib64 ] && rm %{buildroot}%{__prefix}/%{name}/env/lib64 && ln -sf %{__prefix}/%{name}/env/lib %{buildroot}%{__prefix}/%{name}/env/lib64
 
 # init.d files for gunicorn, celeryd, celerycam
 #%{__install} -p -D -m 0755 %{buildroot}%{__prefix}/%{name}/src/bin/gunicorn.initd.sh %{buildroot}%{_initrddir}/%{name}-gunicorn
