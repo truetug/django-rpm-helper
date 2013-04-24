@@ -95,13 +95,13 @@ while [ "$1" != "" ]; do
     shift
 done
 
-if [ -z $SOURCE ]; then
+if [ -z "${SOURCE}" ]; then
     echo 'No source' >&2
     usage
     exit 1
 fi
 
-[ -d ${SOURCE} ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
+[ -d "${SOURCE}" ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
 
 [ -z ${WORKING_ROOT} ] && WORKING_ROOT="${BIN_ROOT}/${WORKING_DIR}" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
 PIP2PI_ROOT="${WORKING_ROOT}/${PIP2PI_DIR}"
@@ -187,9 +187,10 @@ func_check_env() {
     [ ! -d ${PIP_CACHE_ROOT} ] && mkdir -p ${PIP_CACHE_ROOT}
 
     # Clonning or updating source if needed
+    echo
     if $IS_GIT; then
         if [ ! -d ${SOURCE_ROOT} ]; then
-            if [ -z ${SOURCE} ]; then
+            if [ -z "${SOURCE}" ]; then
                 echo "Git source is undefined" >&2
                 exit 1
             fi
@@ -249,10 +250,11 @@ func_setup_env() {
 func_update_env() {
     # Check build requirements
     echo "Checking build requirements"
-    BUILD_REQUIREMENTS=( $(find ${SOURCE_ROOT} -type f -name "rpm_buildrequires.txt" -exec cat {}\;) )
+    BUILD_REQUIREMENTS=( $(find ${SOURCE_ROOT} -type f -name "rpm_buildrequires.txt" -exec cat {} \;) )
     list_check programm_exists ${BUILD_REQUIREMENTS[@]}
 
     # Update local requirements
+    echo "Updating local requirements"
     ##[ -d ${PIP2PI_ROOT} ] && PYPI=file://${PIP2PI_ROOT}/simple
     if ${ENV_ROOT}/bin/pip install -r ${SOURCE_ROOT}/requirements.txt --upgrade --index-url ${PYPI} --timeout=10 --use-mirrors --download-cache ${PIP_CACHE_ROOT}; then
         virtualenv --relocatable ${ENV_ROOT}
