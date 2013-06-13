@@ -182,32 +182,49 @@ func_check_env() {
     # Check for virtualenv
     ! command_exists ${VIRTUALENV_BIN} && func_prepare
 
-    [ ! -d ${WORKING_ROOT} ] && mkdir -p ${WORKING_ROOT}
+    [ ! -d ${SOURCE_ROOT} ] && mkdir -p ${SOURCE_ROOT}
     [ ! -d ${PIP2PI_ROOT} ] && mkdir -p ${PIP2PI_ROOT}
     [ ! -d ${PIP_CACHE_ROOT} ] && mkdir -p ${PIP_CACHE_ROOT}
 
     # Clonning or updating source if needed
     echo
     if $IS_GIT; then
-        if [ ! -d ${SOURCE_ROOT} ]; then
+        if [ ! -d ${SOURCE_ROOT} ]  || [ ! -d ${SOURCE_ROOT}/.git ]; then
             if [ -z "${SOURCE}" ]; then
                 echo "Git source is undefined" >&2
                 exit 1
             fi
 
-            echo -n "Clonning source from ${SOURCE}... "
-            git clone -q ${SOURCE} ${SOURCE_ROOT}
-            echo "OK"
+            echo -n "Getting source from ${SOURCE}... "
+            if [ -d ${SOURCE} ]; then
+                echo -n "(from directory) "
+                cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
+            else
+                echo -n "(from repository) "
+                git clone -q ${SOURCE} ${SOURCE_ROOT}
+            fi
         else
             echo -n "Updating source... "
             cd ${SOURCE_ROOT}
             git checkout .
+            R=$?
             git pull | grep "requirements.txt" && func_update_env
-            echo "OK"
         fi
     else
-        cp -R ${SOURCE} ${WORKING_ROOT}
+        echo -n "Copying source... "
+        cp -R ${SOURCE}/* ${WORKING_ROOT}
+    ficd 
+
+    [ -z $R ] && R=$?
+
+    if [ $R -ne 0 ]; then
+         echo "FAIL"
+         echo "Error while getting source" >&2
+         exit 1
     fi
+
+    echo "OK"
+
 
     [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename ${SPEC})"
     if [ -z ${SPEC} ] || [ ! -f ${SPEC} ]; then
