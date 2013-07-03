@@ -213,7 +213,7 @@ func_check_env() {
     else
         echo -n "Copying source... "
         cp -R ${SOURCE}/* ${WORKING_ROOT}
-    ficd 
+    fi
 
     [ -z $R ] && R=$?
 
