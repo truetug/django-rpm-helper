@@ -17,7 +17,7 @@ if $RESULT; then
     PROJECT_ROOT=$(dirname "${SOURCE_ROOT}")
     ENV_ROOT=${PROJECT_ROOT}/${VIRTUALENV_DIRECTORY}
     
-    ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/manage.py $@
+    ${ENV_ROOT}/bin/python ${SOURCE_ROOT}/${BINARY} $@
 else
     echo "Error: ${BINARY} not found" >&2
     RETVAL=1
