@@ -101,6 +101,7 @@ if [ -z "${SOURCE}" ]; then
     exit 1
 fi
 
+# is git ot just folder
 [ -d "${SOURCE}" ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
 
 # working directory
@@ -109,13 +110,18 @@ PIP2PI_ROOT="${WORKING_ROOT}/${PIP2PI_DIR}"
 PIP_CACHE_ROOT="${WORKING_ROOT}/${PIP_CACHE_DIR}"
 TMP_ROOT="${WORKING_ROOT}/${TMP_DIR}"
 
+# name and path to project inside working directory
 [ -z ${PROJECT_NAME} ] && PROJECT_NAME="$(basename ${SOURCE})"
 PROJECT_ROOT="${WORKING_ROOT}/${PROJECT_NAME}"
 
+# path to directory with source code
 SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
 [ -z ${ENV_ROOT} ] && ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
 
+# is django
 [ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
+
+# pypi repo
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
 
 echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
