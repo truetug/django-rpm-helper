@@ -1,8 +1,2 @@
-*.pyc
-*.prefs
-*.project
-*.pydevproject
-*.pid
-reports/*
-local_*
-.idea/*
+.DS_Store
+projects/*
