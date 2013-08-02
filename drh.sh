@@ -201,7 +201,7 @@ func_check_env() {
                 cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
             else
                 echo -n "(from repository) "
-                git clone -q ${SOURCE} ${SOURCE_ROOT}
+                git clone --recursive -q ${SOURCE} ${SOURCE_ROOT}
             fi
         else
             echo -n "Updating source... "
@@ -209,6 +209,7 @@ func_check_env() {
             git checkout .
             R=$?
             git pull | grep "requirements.txt" && func_update_env
+            git submodule update --recursive
         fi
     else
         echo -n "Copying source... "
