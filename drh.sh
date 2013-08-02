@@ -36,7 +36,7 @@ IS_GIT=true
 IS_DJANGO=false
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
-PYPI="http://pypi.mail.ru/simple" # pypi index-url
+#PYPI="http://pypi.python.org/‎" # pypi index-url
 
 WITHOUT_CHECK=false
 WITHOUT_PIP2PI=false
