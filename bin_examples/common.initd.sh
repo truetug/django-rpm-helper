@@ -33,7 +33,7 @@ start() {
 	daemon --pidfile=${pidfile} ${bin} ${opts}
 	RETVAL=$?
 	echo
-	[ $RETVAL = 0 ] && touch ${lockfile}
+	[ $RETVAL = 0 ] && { touch ${lockfile}; success; }
 	return $RETVAL
 }
 

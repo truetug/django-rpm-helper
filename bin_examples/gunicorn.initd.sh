@@ -22,7 +22,7 @@ pidfile="/var/run/${prog}.pid"
 lockfile="/var/lock/subsys/${prog}"
 
 bin="/usr/bin/${name}"
-opts="run_gunicorn -c /etc/${name}/gunicorn.conf"
+opts="run_gunicorn -c /etc/${name}/gunicorn.conf --pid=${pidfile}"
 
 RETVAL=0
 

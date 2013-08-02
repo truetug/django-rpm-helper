@@ -42,7 +42,8 @@ stop() {
 	killproc -p ${pidfile} ${name}
 	RETVAL=$?
 	echo
-	[ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}
+	[ $RETVAL = 0 ] && { touch ${lockfile}; success; }
+	return $RETVAL
 }
 
 rh_status() {

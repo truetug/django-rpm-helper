@@ -1,5 +1,5 @@
 #!/bin/sh
-name="superprogramm"
+name="superprogram"
 
 # common startup script for programms without pidfile option
 #
@@ -18,22 +18,21 @@ prog="$(basename $0)"
 # Also look at sysconfig; this is where environmental variables should be set on RHEL systems.
 [ -f "/etc/sysconfig/$prog" ] && . /etc/sysconfig/$prog
 
-pidfile="/var/run/${prog}.pid"
+pidfile="/var/run/${prog}/${prog}.pid"
 lockfile="/var/lock/subsys/${prog}"
 
 bin="/usr/bin/${name}"
-opts=""
+opts="-c /etc/${name}/${name}.conf --daemon --pid=${pidfile}"
 
 RETVAL=0
 
 
 start() {
 	echo -n $"Starting $prog: "
-
-	daemon --pidfile=${pidfile} ${bin} ${opts}
+	${bin} ${opts}
 	RETVAL=$?
 	echo
-	[ $RETVAL = 0 ] && touch ${lockfile}
+	[ $RETVAL = 0 ] && { touch ${lockfile}; success; }
 	return $RETVAL
 }
 
