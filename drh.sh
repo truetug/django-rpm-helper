@@ -103,7 +103,8 @@ fi
 
 [ -d "${SOURCE}" ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
 
-[ -z ${WORKING_ROOT} ] && WORKING_ROOT="${BIN_ROOT}/${WORKING_DIR}" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
+# working directory
+[ -z ${WORKING_ROOT} ] && WORKING_ROOT="${BIN_ROOT}/${WORKING_DIR}" || WORKING_ROOT="/tmp" #WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
 PIP2PI_ROOT="${WORKING_ROOT}/${PIP2PI_DIR}"
 PIP_CACHE_ROOT="${WORKING_ROOT}/${PIP_CACHE_DIR}"
 TMP_ROOT="${WORKING_ROOT}/${TMP_DIR}"
