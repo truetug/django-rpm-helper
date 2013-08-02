@@ -236,8 +236,10 @@ func_check_env() {
     fi
 
     # Setup virtualenv if needed
-    if $WITHOUT_CHECK || (! $IS_DJANGO || ([ ! -d ${ENV_ROOT} ] || ! managepy validate)); then
+    if ! $WITHOUT_CHECK && (! $IS_DJANGO || ([ ! -d ${ENV_ROOT} ] || ! managepy validate)); then
         func_setup_env
+    else
+        echo "Continue without check"
     fi
 }
 
