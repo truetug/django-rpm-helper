@@ -205,10 +205,13 @@ func_check_env() {
 
             echo -n "Getting source from ${SOURCE}... "
             if [ -d ${SOURCE} ]; then
-                echo -n "(from directory) "
-                cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
+                echo -n "(${SOURCE}/* > ${SOURCE_ROOT})"
+                echo -n "(from directory)"
+                #cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
+                rsync -ird --filter=':- .gitignore' --exclude=".git" ${SOURCE}/ ${SOURCE_ROOT}
             else
                 echo -n "(from repository) "
+                rm -Rf ${SOURCE_ROOT}
                 git clone --recursive -q ${SOURCE} ${SOURCE_ROOT}
             fi
         else
@@ -216,8 +219,7 @@ func_check_env() {
             cd ${SOURCE_ROOT}
             git checkout .
             R=$?
-            git pull | grep "requirements.txt" && func_update_env
-            git submodule update --recursive
+            git pull && git submodule init && git submodule update && git submodule status | grep "requirements.txt" && func_update_env
         fi
     else
         echo -n "Copying source... "
