@@ -291,7 +291,7 @@ func_update_env() {
     # Update local requirements
     echo "Updating local requirements"
     ##[ -d ${PIP2PI_ROOT} ] && PYPI=file://${PIP2PI_ROOT}/simple
-    if ${ENV_ROOT}/bin/pip install -r ${SOURCE_ROOT}/requirements.txt --upgrade --index-url ${PYPI} --timeout=10 --use-mirrors --download-cache ${PIP_CACHE_ROOT}; then
+    if ${ENV_ROOT}/bin/python ${ENV_ROOT}/bin/pip install -r ${SOURCE_ROOT}/requirements.txt --upgrade --index-url ${PYPI} --timeout=10 --use-mirrors --download-cache ${PIP_CACHE_ROOT}; then
         virtualenv --relocatable ${ENV_ROOT}
 
         # http%3A%2F%2Fpypi.mail.ru%2Fpackages%2Fsource%2Fg%2Fgunicorn%2Fgunicorn-0.17.2.tar.gz
