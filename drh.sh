@@ -14,7 +14,7 @@ OPTIONS:
    -w path      Working directory
    -d           Do not clear RPM directory before building
    -q           Quite building
-   -x           Do not check virtualenv
+   -b           Build virtualenv
    -f path      Path to SPEC-file
 EOF
 }
@@ -81,8 +81,8 @@ while [ "$1" != "" ]; do
             shift
             SPEC=$1
             ;;
-        -x | --without-check )
-            WITHOUT_CHECK=true
+        -b | --build )
+            BUILD_ENV=true
             ;;
         --without-pip2pi )
             WITHOUT_PIP2PI=true
@@ -215,6 +215,7 @@ func_check_env() {
                 echo -n "(from repository) "
                 rm -Rf ${SOURCE_ROOT}
                 git clone --recursive -q ${SOURCE} ${SOURCE_ROOT}
+                R=$?
             fi
         else
             echo -n "Updating source... "
@@ -236,6 +237,7 @@ func_check_env() {
          exit 1
     fi
 
+    echo ${R}
     echo "OK"
 
 
@@ -248,10 +250,10 @@ func_check_env() {
     fi
 
     # Setup virtualenv if needed
-    if ! $WITHOUT_CHECK && (! $IS_DJANGO || ([ ! -d ${ENV_ROOT} ] || ! managepy validate)); then
+    if [ ! -d ${ENV_ROOT} ] || [ $BUILD_ENV ]; then
         func_setup_env
     else
-        echo "Continue without check"
+        echo "Continue without checking requirements"
     fi
 }
 
