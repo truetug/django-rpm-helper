@@ -128,6 +128,8 @@ SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
 echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
 echo "Project name: ${PROJECT_NAME}"
 echo "PyPi: ${PYPI}"
+echo "Working directory: ${WORKING_ROOT}"
+echo "Virtualenv directory: ${ENV_ROOT}"
 echo
 
 
