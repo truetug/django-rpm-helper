@@ -280,8 +280,9 @@ func_setup_env() {
 func_update_env() {
     # Check build requirements
     echo "Checking build requirements"
-    BUILD_REQUIREMENTS=( $(find ${SOURCE_ROOT} -type f -name "rpm_buildrequires.txt" -exec cat {} \;) )
-    list_check programm_exists ${BUILD_REQUIREMENTS[@]}
+    BUILD_REQUIRES=( $(find ${SOURCE_ROOT} -type f -name "build_requires.txt" -exec cat {} \;) )
+    echo "BUILD REQUIRES ${BUILD_REQUIRES}"
+    list_check programm_exists ${BUILD_REQUIRES[@]}
 
     # Update local requirements
     echo "Updating local requirements"
@@ -347,10 +348,10 @@ func_build_rpm() {
     PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
     PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
 
-    REQUIREMENTS=$(find ${SOURCE_ROOT} -type f -name "rpm_requires.txt" -exec cat {} \; | tr "\n" ",")
-    if [ ! -z "${REQUIREMENTS}" ]; then
-        echo "Use install requirements: ${REQUIREMENTS}"
-        PARAMS+=("--define \"requires ${REQUIREMENTS}\"")
+    REQUIRES=$(find ${SOURCE_ROOT} -type f -name "requires.txt" -exec cat {} \; | tr "\n" ",")
+    if [ ! -z "${REQUIRES}" ]; then
+        echo "Use install requirements: ${REQUIRES}"
+        PARAMS+=("--define \"requires ${REQUIRES}\"")
     fi
 
     $IS_QUIET && PARAMS+=("--quiet")
