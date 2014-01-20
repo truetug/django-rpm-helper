@@ -1,21 +1,24 @@
 #!/bin/sh
 usage() {
 cat << EOF
-usage: $0 [options]
+usage: $0 -s url -n name [options]
 
 This script helps to build RPM package from python code
 
 OPTIONS:
-   -h           Show this message
-   -s url       Path to directory with source or git url
-   -p url       PyPi url
-   -n name      Name of project
-   -e           Path to virtualenv directory
-   -w path      Working directory
-   -d           Do not clear RPM directory before building
-   -q           Quite building
-   -b           Build virtualenv
-   -f path      Path to SPEC-file
+    -s url       Path to directory with source code or git url
+    -n name      Name of project
+
+    -p url       PyPi url
+    -e           Path to virtualenv directory
+    -b           Force virtualenv build
+
+    -w path      Working directory
+    -f path      Path to SPEC-file
+    -h           Show this message
+
+    -q           Quite RPM building
+    -d           Do not clear RPM directory before building
 EOF
 }
 
