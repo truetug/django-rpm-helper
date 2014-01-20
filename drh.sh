@@ -68,9 +68,11 @@ while [ "$1" != "" ]; do
             ENV_ROOT=$1
             ;;
         -d | --dirty )
+            shift
             IS_PURGE=false
             ;;
         -q | --quite )
+            shift
             IS_QUIET=true
             ;;
         -w | --workingroot )
@@ -82,10 +84,16 @@ while [ "$1" != "" ]; do
             SPEC=$1
             ;;
         -b | --build )
+            shift
             BUILD_ENV=true
             ;;
         --without-pip2pi )
+            shift
             WITHOUT_PIP2PI=true
+            ;;
+        --releasefmt )
+            shift
+            RELEASE_FMT=$1
             ;;
         -h | --help | * )
             usage
@@ -124,6 +132,9 @@ SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
 
 # pypi repo
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
+
+# release format
+[ -z ${RELEASE_FMT} ] && RELEASE_FMT="%Y%m%d.%H%M%S"
 
 echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
 echo "Project name: ${PROJECT_NAME}"
@@ -335,7 +346,7 @@ func_build_rpm() {
     # Prepare local
     echo -n "Getting version and release... "
     VERSION=$(cat ${SOURCE_ROOT}/changelog.txt | head -n 1) || "undefined"
-    RELEASE=$(date +%s)
+    RELEASE=$(date +"${RELEASE_FMT}")
     echo "${VERSION}-${RELEASE}"
 
     # Copy SPEC file
