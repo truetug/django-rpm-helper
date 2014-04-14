@@ -269,6 +269,13 @@ func_check_env() {
     else
         echo "Continue without checking requirements"
     fi
+
+    # Collect static
+    if ${IS_DJANGO} ; then
+        echo -n "Collect static..."
+        managepy collectstatic --noinput
+        echo "OK"
+    fi
 }
 
 
