@@ -264,7 +264,7 @@ func_check_env() {
     fi
 
     # Setup virtualenv if needed
-    if [ ! -d ${ENV_ROOT} ] || [ $BUILD_ENV ]; then
+    if [ ! -d ${ENV_ROOT} ] || ${BUILD_ENV} ; then
         func_setup_env
     else
         echo "Continue without checking requirements"
@@ -286,7 +286,7 @@ func_setup_env() {
     fi
 
     # Update requirements
-    if ! $IS_DJANGO || ! managepy validate ; then
+    if ! ${IS_DJANGO} || ! managepy validate || ${BUILD_ENV} ; then
         echo "Install requirements... "
         func_update_env
     fi
