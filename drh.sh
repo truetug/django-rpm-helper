@@ -137,7 +137,7 @@ SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
 [ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
 
 # release format
-[ -z ${RELEASE_FMT} ] && RELEASE_FMT="%Y%m%d.%H%M%S"
+[ -z ${RELEASE_FMT} ] && RELEASE_FMT="%Y.%m.%dT%H.%M.%S"
 
 echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
 echo "Project name: ${PROJECT_NAME}"
