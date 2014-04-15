@@ -40,6 +40,7 @@ IS_DJANGO=false
 IS_PURGE=true # Clean RPM directory before build
 IS_QUIET=false # rpmbuild with --quite option
 #PYPI="http://pypi.python.org/‎" # pypi index-url
+BUILD_ENV=false
 
 WITHOUT_CHECK=false
 WITHOUT_PIP2PI=false
