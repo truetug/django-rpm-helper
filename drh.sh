@@ -223,11 +223,11 @@ func_check_env() {
             echo -n "Getting source from ${SOURCE}... "
             if [ -d ${SOURCE} ]; then
                 echo -n "(${SOURCE}/* > ${SOURCE_ROOT})"
-                echo -n "(from directory)"
+                echo "(from directory)"
                 #cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
                 rsync -ird --filter=':- .gitignore' --exclude=".git" ${SOURCE}/ ${SOURCE_ROOT}
             else
-                echo -n "(from repository) "
+                echo "(from repository) "
                 rm -Rf ${SOURCE_ROOT}
                 git clone --recursive -q ${SOURCE} ${SOURCE_ROOT}
                 R=$?
@@ -252,10 +252,6 @@ func_check_env() {
          exit 1
     fi
 
-    echo ${R}
-    echo "OK"
-
-
     [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename ${SPEC})"
     if [ -z ${SPEC} ] || [ ! -f ${SPEC} ]; then
         echo "SPEC-file does not exists" >&2
@@ -273,7 +269,7 @@ func_check_env() {
 
     # Collect static
     if ${IS_DJANGO} ; then
-        echo -n "Collect static..."
+        echo -n "Collect static... "
         managepy collectstatic --noinput
         echo "OK"
     fi
