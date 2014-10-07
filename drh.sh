@@ -367,8 +367,7 @@ func_build_rpm() {
     PARAMS+=("--define \"version ${VERSION}\"")
     PARAMS+=("--define \"release ${RELEASE}\"")
 
-    PARAMS+=("--define \"source0 ${SOURCE_ROOT}\"")
-    PARAMS+=("--define \"source1 ${ENV_ROOT}\"")
+    PARAMS+=("--define \"source ${PROJECT_ROOT}\"")
 
     REQUIRES=$(find ${SOURCE_ROOT} -type f -name "requires.txt" -exec cat {} \; | tr "\n" ",")
     if [ ! -z "${REQUIRES}" ]; then
