@@ -268,7 +268,7 @@ func_check_env() {
     fi
 
     # Collect static
-    if ${IS_DJANGO} ; then
+    if $IS_DJANGO ; then
         echo -n "Collect static... "
         managepy collectstatic --noinput
         echo "OK"
@@ -290,7 +290,7 @@ func_setup_env() {
     fi
 
     # Update requirements
-    if ! ${IS_DJANGO} || ! managepy validate || ${BUILD_ENV} ; then
+    if ! $IS_DJANGO || ! managepy validate || $BUILD_ENV ; then
         echo "Install requirements... "
         func_update_env
     fi
