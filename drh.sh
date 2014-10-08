@@ -69,7 +69,7 @@ while [ "$1" != "" ]; do
             ;;
         -e | --env )
             shift
-            ENV_ROOT=$1
+            ENV_SOURCE=$1
             ;;
         -d | --dirty )
             shift
@@ -129,7 +129,7 @@ PROJECT_ROOT="${WORKING_ROOT}/${PROJECT_NAME}"
 
 # path to directory with source code
 SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
-[ -z ${ENV_ROOT} ] && ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
+ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
 
 # is django
 [ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
@@ -261,17 +261,34 @@ func_check_env() {
     fi
 
     # Setup virtualenv if needed
-    if [ ! -d ${ENV_ROOT} ] || ${BUILD_ENV} ; then
-        func_setup_env
+    if [ ! -z ${ENV_SOURCE} ] && [ -d ${ENV_SOURCE} ]; then
+        echo -n "Copying virtualenv... "
+        if cp -R ${ENV_SOURCE} ${ENV_ROOT}; then
+            find ${ENV_ROOT} -type f -name "*.py[co]" -delete
+            find ${ENV_ROOT} -type f -exec sed -i "s:${ENV_SOURCE}:${ENV_ROOT}:" {} \;
+            echo "OK"
+        else
+            echo "FAIL"
+        fi
     else
-        echo "Continue without checking requirements"
+        if [ ! -d ${ENV_ROOT} ] || $BUILD_ENV ; then
+            func_setup_env
+        else
+            echo "Continue without checking requirements"
+        fi
     fi
 
     # Collect static
-    if $IS_DJANGO ; then
-        echo -n "Collect static... "
+    if $IS_DJANGO; then
         managepy collectstatic --noinput
-        echo "OK"
+        managepy --help
+        echo -n "Collect static... "
+
+        if managepy collectstatic --noinput; then
+            echo "OK"
+        else
+            echo "FAIL"
+        fi
     fi
 }
 
@@ -295,7 +312,7 @@ func_setup_env() {
         func_update_env
     fi
 
-    echo "Project environment is set up"
+    echo "Project environment is up"
 }
 
 
@@ -367,6 +384,7 @@ func_build_rpm() {
     PARAMS+=("--define \"version ${VERSION}\"")
     PARAMS+=("--define \"release ${RELEASE}\"")
 
+    PARAMS+=("--define \"name ${PROJECT_NAME}\"")
     PARAMS+=("--define \"source ${PROJECT_ROOT}\"")
 
     REQUIRES=$(find ${SOURCE_ROOT} -type f -name "requires.txt" -exec cat {} \; | tr "\n" ",")
