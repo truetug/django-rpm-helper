@@ -227,7 +227,7 @@ func_check_env() {
                 echo -n "(${SOURCE}/* > ${SOURCE_ROOT})"
                 echo "(from directory)"
                 #cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
-                rsync -ird --delete-exclude --filter=':- .gitignore' --exclude=".git" ${SOURCE}/ ${SOURCE_ROOT}
+                rsync -ird --delete-excluded --filter=':- .gitignore' --exclude=".git" ${SOURCE}/ ${SOURCE_ROOT}
             else
                 echo "(from repository) "
                 rm -Rf ${SOURCE_ROOT}
