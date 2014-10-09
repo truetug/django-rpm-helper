@@ -52,6 +52,7 @@ WORKING_DIR="projects"
 PIP2PI_DIR="_packages"
 PIP_CACHE_DIR="_cache"
 TMP_DIR="_tmp"
+DEPLOY_DIR="deploy"
 
 while [ "$1" != "" ]; do
     case $1 in
@@ -130,6 +131,7 @@ PROJECT_ROOT="${WORKING_ROOT}/${PROJECT_NAME}"
 # path to directory with source code
 SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
 ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
+DEPLOY_ROOT="${SOURCE_ROOT}/${DEPLOY_DIR}"
 
 # is django
 [ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
@@ -225,7 +227,7 @@ func_check_env() {
                 echo -n "(${SOURCE}/* > ${SOURCE_ROOT})"
                 echo "(from directory)"
                 #cp -R ${SOURCE}/* ${SOURCE_ROOT} && rm -Rf ${SOURCE_ROOT}/.git
-                rsync -ird --filter=':- .gitignore' --exclude=".git" ${SOURCE}/ ${SOURCE_ROOT}
+                rsync -ird --delete-exclude --filter=':- .gitignore' --exclude=".git" ${SOURCE}/ ${SOURCE_ROOT}
             else
                 echo "(from repository) "
                 rm -Rf ${SOURCE_ROOT}
@@ -252,7 +254,7 @@ func_check_env() {
          exit 1
     fi
 
-    [ -z ${SPEC} ] && SPEC=$(find ${SOURCE_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename ${SPEC})"
+    [ -z ${SPEC} ] && SPEC=$(find ${DEPLOY_ROOT} -type f -name "*.spec" | head -1) || SPEC="$(cd $(dirname ${SPEC}); pwd)/$(basename ${SPEC})"
     if [ -z ${SPEC} ] || [ ! -f ${SPEC} ]; then
         echo "SPEC-file does not exists" >&2
         exit 1
@@ -319,7 +321,7 @@ func_setup_env() {
 func_update_env() {
     # Check build requirements
     echo "Checking build requirements"
-    BUILD_REQUIRES=( $(find ${SOURCE_ROOT} -type f -name "build_requires.txt" -exec cat {} \;) )
+    BUILD_REQUIRES=( $(find ${DEPLOY_ROOT} -type f -name "build_requires.txt" -exec cat {} \;) )
     echo "BUILD REQUIRES ${BUILD_REQUIRES}"
     list_check programm_exists ${BUILD_REQUIRES[@]}
 
@@ -387,7 +389,7 @@ func_build_rpm() {
     PARAMS+=("--define \"name ${PROJECT_NAME}\"")
     PARAMS+=("--define \"source ${PROJECT_ROOT}\"")
 
-    REQUIRES=$(find ${SOURCE_ROOT} -type f -name "requires.txt" -exec cat {} \; | tr "\n" ",")
+    REQUIRES=$(find ${DEPLOY_ROOT} -type f -name "requires.txt" -exec cat {} \; | tr "\n" ",")
     if [ ! -z "${REQUIRES}" ]; then
         echo "Use install requirements: ${REQUIRES}"
         PARAMS+=("--define \"requires ${REQUIRES}\"")
