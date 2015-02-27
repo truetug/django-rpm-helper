@@ -265,7 +265,7 @@ func_check_env() {
     # Setup virtualenv if needed
     if [ ! -z ${ENV_SOURCE} ] && [ -d ${ENV_SOURCE} ]; then
         echo -n "Copying virtualenv... "
-        if cp -R ${ENV_SOURCE} ${ENV_ROOT}; then
+        if cp -R ${ENV_SOURCE}/* ${ENV_ROOT}; then
             find ${ENV_ROOT} -type f -name "*.py[co]" -delete
             find ${ENV_ROOT} -type f -exec sed -i "s:${ENV_SOURCE}:${ENV_ROOT}:" {} \;
             echo "OK"
