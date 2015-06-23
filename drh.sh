@@ -1,9 +1,10 @@
 #!/bin/sh
 usage() {
 cat << EOF
-usage: $0 -s url -n name [options]
+usage: $0 [command] -s url -n name [options]
 
 This script helps to build RPM package from python code
+Available commands: build_rpm (default), setup_rpm, check_env, setup_env, update_env
 
 OPTIONS:
     -s url       Path to directory with source code or git url
@@ -18,18 +19,21 @@ OPTIONS:
     -h           Show this message
 
     -q           Quite RPM building
+    -b           Force rebuild virtualenv
+    -t           Target architecture (e.g. x86_64 or i686)
     -d           Do not clear RPM directory before building
 EOF
 }
 
-# predifined
+
+### PREDEFINED ###
 [ -d ~/.local/bin ] && PATH=~/.local/bin:$PATH
 BIN=$(readlink "${0}")
 [ -z ${BIN} ] && BIN=${0}
 BIN_ROOT="$(cd $(dirname "${BIN}"); pwd)"
 RETVAL=0
 
-# settings
+### SETTINGS ###
 VIRTUALENV_BIN="virtualenv"
 SOURCE=""
 SPEC=""
@@ -37,122 +41,33 @@ ENV_ROOT=""
 PROJECT_NAME=""
 IS_GIT=true
 IS_DJANGO=false
-IS_PURGE=true # Clean RPM directory before build
-IS_QUIET=false # rpmbuild with --quite option
-#PYPI="http://pypi.python.org/‎" # pypi index-url
+IS_PURGE=true  # Clean RPM directory before build
+IS_QUIET=false  # rpmbuild with --quite option
+#PYPI="http://pypi.python.org/‎"  # pypi index-url
 BUILD_ENV=false
 
 WITHOUT_CHECK=false
-WITHOUT_PIP2PI=false
 
 ENV_DIR="env"
 SOURCE_DIR="src"
 
 WORKING_DIR="projects"
-PIP2PI_DIR="_packages"
 PIP_CACHE_DIR="_cache"
 TMP_DIR="_tmp"
 DEPLOY_DIR="deploy"
-
-while [ "$1" != "" ]; do
-    case $1 in
-        -s | --source )
-            shift
-            SOURCE=$1
-            ;;
-        -p | --pypi )
-            shift
-            PYPI=$1
-            ;;
-        -n | --name )
-            shift
-            PROJECT_NAME=$1
-            ;;
-        -e | --env )
-            shift
-            ENV_SOURCE=$1
-            ;;
-        -d | --dirty )
-            shift
-            IS_PURGE=false
-            ;;
-        -q | --quite )
-            shift
-            IS_QUIET=true
-            ;;
-        -w | --workingroot )
-            shift
-            WORKING_ROOT=$1
-            ;;
-        -f | --file )
-            shift
-            SPEC=$1
-            ;;
-        -b | --build )
-            shift
-            BUILD_ENV=true
-            ;;
-        --without-pip2pi )
-            shift
-            WITHOUT_PIP2PI=true
-            ;;
-        --releasefmt )
-            shift
-            RELEASE_FMT=$1
-            ;;
-        -h | --help | * )
-            usage
-            exit 1
-            ;;
-    esac
-    shift
-done
-
-if [ -z "${SOURCE}" ]; then
-    echo 'No source' >&2
-    usage
-    exit 1
-fi
-
-# is git ot just folder
-[ -d "${SOURCE}" ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
-
-# working directory bin/tmp or attr
-#[ -z ${WORKING_ROOT} ] && WORKING_ROOT="${BIN_ROOT}/${WORKING_DIR}" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
-[ -z ${WORKING_ROOT} ] && WORKING_ROOT="/tmp" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
-PIP2PI_ROOT="${WORKING_ROOT}/${PIP2PI_DIR}"
-PIP_CACHE_ROOT="${WORKING_ROOT}/${PIP_CACHE_DIR}"
-TMP_ROOT="${WORKING_ROOT}/${TMP_DIR}"
-
-# name and path to project inside working directory
-[ -z ${PROJECT_NAME} ] && PROJECT_NAME="$(basename ${SOURCE})"
-PROJECT_ROOT="${WORKING_ROOT}/${PROJECT_NAME}"
-
-# path to directory with source code
-SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
-ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
-DEPLOY_ROOT="${SOURCE_ROOT}/${DEPLOY_DIR}"
-
-# is django
-[ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
-
-# pypi repo
-[ -z ${PYPI} ] && PYPI="http://pypi.python.org/simple"
-
-# release format
-[ -z ${RELEASE_FMT} ] && RELEASE_FMT="%Y.%m.%dT%H.%M.%S"
-
-echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
-echo "Project name: ${PROJECT_NAME}"
-echo "PyPi: ${PYPI}"
-echo "Working directory: ${WORKING_ROOT}"
-echo "Virtualenv directory: ${ENV_ROOT}"
-echo
+TARGET="x86_64"
+CMD="build_rpm"
 
 
-# functions
 command_exists() {
     command -v "$1" > /dev/null 2>&1
+}
+
+
+join() {
+    local IFS="$1"
+    shift
+    echo "$*"
 }
 
 
@@ -199,9 +114,9 @@ managepy() {
 func_prepare() {
     [ ! -d ${TMP_ROOT} ] && mkdir -p ${TMP_ROOT}
     cd ${TMP_ROOT}
-    curl -O http://python-distribute.org/distribute_setup.py
-    python distribute_setup.py --user
-    easy_install virtualenv pip pip2pi
+    curl -O https://bootstrap.pypa.io/ez_setup.py 
+    python ez_setup.py --user
+    easy_install --prefix=$HOME/.local virtualenv pip
 }
 
 
@@ -210,7 +125,6 @@ func_check_env() {
     ! command_exists ${VIRTUALENV_BIN} && func_prepare
 
     [ ! -d ${SOURCE_ROOT} ] && mkdir -p ${SOURCE_ROOT}
-    [ ! -d ${PIP2PI_ROOT} ] && mkdir -p ${PIP2PI_ROOT}
     [ ! -d ${PIP_CACHE_ROOT} ] && mkdir -p ${PIP_CACHE_ROOT}
 
     # Clonning or updating source if needed
@@ -322,22 +236,13 @@ func_update_env() {
     # Check build requirements
     echo "Checking build requirements"
     BUILD_REQUIRES=( $(find ${DEPLOY_ROOT} -type f -name "build_requires.txt" -exec cat {} \;) )
-    echo "BUILD REQUIRES ${BUILD_REQUIRES}"
+    # echo "BUILD REQUIRES $(join , ${BUILD_REQUIRES[@]})"
     list_check programm_exists ${BUILD_REQUIRES[@]}
 
     # Update local requirements
     echo "Updating local requirements"
-    ##[ -d ${PIP2PI_ROOT} ] && PYPI=file://${PIP2PI_ROOT}/simple
-    if ${ENV_ROOT}/bin/python ${ENV_ROOT}/bin/pip install -r ${SOURCE_ROOT}/requirements.txt --upgrade --index-url ${PYPI} --timeout=10 --use-mirrors --download-cache ${PIP_CACHE_ROOT}; then
+    if ${ENV_ROOT}/bin/python ${ENV_ROOT}/bin/pip install -r ${SOURCE_ROOT}/requirements.txt --upgrade --index-url ${PYPI} --timeout=10; then
         virtualenv --relocatable ${ENV_ROOT}
-
-        # http%3A%2F%2Fpypi.mail.ru%2Fpackages%2Fsource%2Fg%2Fgunicorn%2Fgunicorn-0.17.2.tar.gz
-        ##echo -n "Store cached packages..."
-        ##find . -type f -name "*.tar.gz" |
-        ##sed -e "s/.*%2F\(.*\)/\0 \1/g" |
-        ##while read path_from path_to; do mv ${path_from} ${PIP2PI_ROOT}/${path_to}; done
-        ##dir2pi ${PIP2PI_ROOT}
-        ##echo "OK"
     else
         echo "Problem with virtualenv" >&2
         exit 1
@@ -357,17 +262,21 @@ func_setup_rpm() {
 
     # Copy rpmmacros
     echo -n "Copying ${HOME}/.rpmmacros... "
-    cp ${BIN_ROOT}/share_examples/rpmmacros.sh ${HOME}/.rpmmacros
+    cp ${BIN_ROOT}/share_examples/rpmmacros ${HOME}/.rpmmacros
     echo "OK"
 
     echo "RPM environment is up"
 }
+
 
 func_build_rpm() {
     # Check RPM env
     if [ ! -d "${HOME}/rpmbuild" ] || [ ! -f "${HOME}/.rpmmacros" ]; then
         func_setup_rpm
     fi
+
+    # Check Python env
+    func_check_env
 
     # Prepare local
     echo -n "Getting version and release... "
@@ -404,8 +313,12 @@ func_build_rpm() {
     fi
 
     echo
-    RPMBUILD="rpmbuild -bb ${SPEC} ${PARAMS[@]}"
+    RPMBUILD="rpmbuild -bb ${SPEC} ${PARAMS[@]} --target=${TARGET}"
     echo "Building with command: ${RPMBUILD}"
+
+    if [ ${RPMBUILD} != "x86_64" ]; then
+        export CC="gcc -m32"
+    fi
 
     if eval ${RPMBUILD}; then
         echo
@@ -422,26 +335,111 @@ func_build_rpm() {
 }
 
 
-# Main
-echo "Source root: ${SOURCE_ROOT}"
-echo "Project root: ${PROJECT_ROOT}"
-CMD=$1
+### MAIN ###
+while [ -n "$1" ]; do
+    case $1 in
+        -s | --source )
+            shift
+            SOURCE=$1
+            ;;
+        -p | --pypi )
+            shift
+            PYPI=$1
+            ;;
+        -n | --name )
+            shift
+            PROJECT_NAME=$1
+            ;;
+        -e | --env )
+            shift
+            ENV_SOURCE=$1
+            ;;
+        -d | --dirty )
+            IS_PURGE=false
+            ;;
+        -q | --quite )
+            IS_QUIET=true
+            ;;
+        -w | --workingroot )
+            shift
+            WORKING_ROOT=$1
+            ;;
+        -f | --file )
+            shift
+            SPEC=$1
+            ;;
+        -b | --build )
+            BUILD_ENV=true
+            ;;
+        -t | --target )
+            shift
+            TARGET=$1
+            ;;
+        --releasefmt )
+            shift
+            RELEASE_FMT=$1
+            ;;
+        build_rpm | setup_rpm | check_env | setup_env | update_env )
+            CMD=$1
+            ;;
+        -h | --help | * )
+            [ -n "$1" ] && echo "Bad option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+    shift
+done
 
-func_check_env
+if [ "$CMD" != "setup_rpm" ]; then
+    if [ -z "$SOURCE" ]; then
+        echo 'No source' >&2
+        usage
+        exit 1
+    fi
 
-# TODO: make binary for any command
-# Copy bin-file if django and no bin present
-##if $IS_DJANGO && [ ! -f ${SOURCE_ROOT}/bin/manage.sh ]; then
-##    echo -n "Copying runfile... "
-##    mkdir -p ${SOURCE_ROOT}/bin/
-##    cp ${BIN_ROOT}/bin_examples/manage.sh ${SOURCE_ROOT}/bin/
-##    echo "OK"
-##fi
+    # is git ot just folder
+    [ -d "${SOURCE}" ] && ([ ! -d ${SOURCE}/.git ] && IS_GIT=false || SOURCE="$(cd ${SOURCE}; pwd)")
 
-[ -z ${CMD} ] && CMD="build_rpm"
+    # working directory bin/tmp or attr
+    #[ -z ${WORKING_ROOT} ] && WORKING_ROOT="${BIN_ROOT}/${WORKING_DIR}" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
+    [ -z ${WORKING_ROOT} ] && WORKING_ROOT="/tmp" || WORKING_ROOT="$(cd ${WORKING_ROOT}; pwd)"
+    PIP_CACHE_ROOT="${WORKING_ROOT}/${PIP_CACHE_DIR}"
+    TMP_ROOT="${WORKING_ROOT}/${TMP_DIR}"
+
+    # name and path to project inside working directory
+    [ -z ${PROJECT_NAME} ] && PROJECT_NAME="$(basename ${SOURCE})"
+    PROJECT_ROOT="${WORKING_ROOT}/${PROJECT_NAME}"
+
+    # path to directory with source code
+    SOURCE_ROOT="${PROJECT_ROOT}/${SOURCE_DIR}"
+    ENV_ROOT="${PROJECT_ROOT}/${ENV_DIR}"
+    DEPLOY_ROOT="${SOURCE_ROOT}/${DEPLOY_DIR}"
+
+    # is django
+    [ -f ${SOURCE_ROOT}/manage.py ] && IS_DJANGO=true
+
+    # pypi repo
+    [ -z ${PYPI} ] && PYPI="https://pypi.python.org/simple"
+
+    # release format
+    [ -z ${RELEASE_FMT} ] && RELEASE_FMT="%Y.%m.%dT%H.%M.%S"
+
+    echo -n "Source: ${SOURCE} " && $IS_GIT && echo "(GIT)" || echo
+    echo "Project name: ${PROJECT_NAME}"
+    echo "PyPi: ${PYPI}"
+    echo "Working directory: ${WORKING_ROOT}"
+    echo "Virtualenv directory: ${ENV_ROOT}"
+    echo
+    echo "Source root: ${SOURCE_ROOT}"
+    echo "Project root: ${PROJECT_ROOT}"
+fi
+
 FUNC="func_${CMD}"
+
 echo
 echo "Calling ${FUNC}"
+
 ${FUNC}
 
 exit $RETVAL
